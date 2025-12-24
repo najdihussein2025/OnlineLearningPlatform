@@ -1,0 +1,41 @@
+﻿# ======================
+# Logs
+# ======================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ======================
+# Node / Frontend
+# ======================
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# ======================
+# Visual Studio / .NET
+# ======================
+.vs/
+bin/
+obj/
+*.user
+*.suo
+*.ntvs*
+*.njsproj
+
+# KEEP solution files!
+# *.sln  ❌ DO NOT IGNORE
+
+# ======================
+# Editors
+# ======================
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.sw?
