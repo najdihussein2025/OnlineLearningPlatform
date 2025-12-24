@@ -1,0 +1,15 @@
+/* Public Layout Styles */
+
+.public-layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--background);
+}
+
+.public-layout .main-content {
+  flex: 1;
+  width: 100%;
+  padding-top: 0;
+}
+

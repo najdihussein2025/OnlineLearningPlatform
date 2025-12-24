@@ -1,0 +1,209 @@
+/* CourseCard Styles */
+
+.course-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--background);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-lg);
+  overflow: hidden;
+  transition: all var(--transition-base);
+  text-decoration: none;
+  color: inherit;
+  height: 100%;
+  box-shadow: var(--shadow);
+}
+
+.course-card:hover {
+  transform: translateY(-8px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--primary-light);
+}
+
+.course-card-thumbnail {
+  position: relative;
+  width: 100%;
+  height: 200px;
+  overflow: hidden;
+  background: var(--background-gray);
+}
+
+.course-card-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform var(--transition-slow);
+}
+
+.course-card:hover .course-card-thumbnail img {
+  transform: scale(1.05);
+}
+
+.course-card-placeholder {
+  width: 100%;
+  height: 100%;
+}
+
+.course-card-badges {
+  position: absolute;
+  top: var(--spacing-md);
+  left: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  z-index: 1;
+}
+
+.course-badge {
+  display: inline-block;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--border-radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-white);
+}
+
+.category-badge {
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+}
+
+.category-web {
+  background-color: rgba(59, 130, 246, 0.9);
+}
+
+.category-data {
+  background-color: rgba(13, 148, 136, 0.9);
+}
+
+.category-design {
+  background-color: rgba(168, 85, 247, 0.9);
+}
+
+.category-business {
+  background-color: rgba(249, 115, 22, 0.9);
+}
+
+.category-programming {
+  background-color: rgba(236, 72, 153, 0.9);
+}
+
+.category-marketing {
+  background-color: rgba(34, 197, 94, 0.9);
+}
+
+.category-default {
+  background-color: rgba(0, 0, 0, 0.6);
+}
+
+.difficulty-badge {
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+}
+
+.badge-beginner {
+  background-color: rgba(34, 197, 94, 0.9);
+}
+
+.badge-intermediate {
+  background-color: rgba(249, 115, 22, 0.9);
+}
+
+.badge-advanced {
+  background-color: rgba(239, 68, 68, 0.9);
+}
+
+.course-card-content {
+  padding: var(--spacing-lg);
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: var(--spacing-md);
+}
+
+.course-card-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.course-card-description {
+  font-size: var(--font-size-base);
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  flex: 1;
+}
+
+.course-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid var(--border-color);
+}
+
+.course-card-meta-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.course-card-meta-item svg {
+  flex-shrink: 0;
+  color: var(--primary-color);
+}
+
+.course-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: var(--spacing-md);
+  margin-top: auto;
+}
+
+.course-card-cta {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--primary-color);
+  transition: color var(--transition-fast);
+}
+
+.course-card:hover .course-card-cta {
+  color: var(--primary-dark);
+}
+
+.course-card-footer svg {
+  color: var(--primary-color);
+  transition: transform var(--transition-fast);
+}
+
+.course-card:hover .course-card-footer svg {
+  transform: translateX(4px);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .course-card-thumbnail {
+    height: 180px;
+  }
+
+  .course-card-content {
+    padding: var(--spacing-md);
+  }
+}
+

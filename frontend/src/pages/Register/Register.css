@@ -62,11 +62,38 @@
 }
 
 .error-message {
+  display: block;
+  color: #ef4444;
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+}
+
+.error-message:first-of-type {
   background-color: #fee;
   color: #c33;
   padding: 0.75rem;
   border-radius: 4px;
   margin-bottom: 1rem;
   text-align: center;
+}
+
+.input-error {
+  border-color: #ef4444 !important;
+}
+
+.input-error:focus {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.required {
+  color: #ef4444;
+}
+
+.form-hint {
+  display: block;
+  color: #666;
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
 }
 

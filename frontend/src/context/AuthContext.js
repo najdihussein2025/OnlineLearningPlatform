@@ -9,9 +9,16 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     // Check if user is already logged in
+    const token = authService.getToken();
     const currentUser = authService.getCurrentUser();
-    if (currentUser) {
-      setUser(currentUser);
+    const role = localStorage.getItem('role');
+    
+    if (token && currentUser) {
+      setUser({ ...currentUser, role: role || 'student' });
+    } else {
+      // Clear any stale data if not authenticated
+      setUser(null);
+      localStorage.removeItem('role');
     }
     setLoading(false);
   }, []);
@@ -19,9 +26,24 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       const data = await authService.login(email, password);
-      setUser(data.user);
+      const userData = data.user || { email, firstName: email.split('@')[0] };
+      // Set default role to student if not provided (for UI demo)
+      const role = data.user?.role || localStorage.getItem('role') || 'student';
+      localStorage.setItem('role', role);
+      setUser({ ...userData, role });
       return { success: true, data };
     } catch (error) {
+      // For UI testing without backend: create mock auth
+      if (!error.response) {
+        const userData = { email, firstName: email.split('@')[0], id: Date.now() };
+        const role = email.includes('admin') ? 'admin' : 
+                     email.includes('instructor') ? 'instructor' : 'student';
+        localStorage.setItem('token', 'mock-token-' + Date.now());
+        localStorage.setItem('user', JSON.stringify(userData));
+        localStorage.setItem('role', role);
+        setUser({ ...userData, role });
+        return { success: true, data: { user: userData } };
+      }
       return {
         success: false,
         error: error.response?.data?.message || 'Login failed',
@@ -32,9 +54,24 @@ export const AuthProvider = ({ children }) => {
   const register = async (userData) => {
     try {
       const data = await authService.register(userData);
-      setUser(data.user);
+      const newUser = data.user || { ...userData, id: Date.now() };
+      // Set default role to student if not provided (for UI demo)
+      const role = data.user?.role || localStorage.getItem('role') || 'student';
+      localStorage.setItem('role', role);
+      setUser({ ...newUser, role });
       return { success: true, data };
     } catch (error) {
+      // For UI testing without backend: create mock auth
+      if (!error.response) {
+        const newUser = { ...userData, id: Date.now() };
+        const role = userData.email.includes('admin') ? 'admin' : 
+                     userData.email.includes('instructor') ? 'instructor' : 'student';
+        localStorage.setItem('token', 'mock-token-' + Date.now());
+        localStorage.setItem('user', JSON.stringify(newUser));
+        localStorage.setItem('role', role);
+        setUser({ ...newUser, role });
+        return { success: true, data: { user: newUser } };
+      }
       return {
         success: false,
         error: error.response?.data?.message || 'Registration failed',
@@ -44,8 +81,17 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     authService.logout();
+    localStorage.removeItem('role');
     setUser(null);
   };
+
+  const getRole = () => {
+    if (user?.role) return user.role;
+    return localStorage.getItem('role') || null;
+  };
+
+  // Check authentication: user exists AND token exists
+  const isAuthenticated = !!user && !!authService.getToken();
 
   const value = {
     user,
@@ -53,7 +99,9 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     logout,
-    isAuthenticated: !!user,
+    isAuthenticated,
+    getRole,
+    role: user?.role || localStorage.getItem('role') || null,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
