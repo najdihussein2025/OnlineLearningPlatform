@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-
+//my server name :DESKTOP-2TUOJHH \SQLEXPRESS
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -9,7 +9,7 @@ builder.Services.AddControllers();
 // Add DbContext
 builder.Services.AddDbContext<ids.Data.AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection") ?? 
-        "Server=(localdb)\\mssqllocaldb;Database=OnlineLearningPlatform;Trusted_Connection=True;MultipleActiveResultSets=true"));
+        "Server=(localdb)\\MSSQLLocalDB;Database=OnlineLearningPlatform;Trusted_Connection=True;TrustServerCertificate=True"));
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
