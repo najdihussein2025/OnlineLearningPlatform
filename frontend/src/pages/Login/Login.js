@@ -61,22 +61,21 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    
+
     if (!validateForm()) {
       return;
     }
 
     setLoading(true);
 
-    // For demo: Set role based on email or default to student
-    const role = formData.email.includes('admin') ? 'admin' : 
-                 formData.email.includes('instructor') ? 'instructor' : 'student';
-    localStorage.setItem('role', role);
-
     const result = await login(formData.email, formData.password);
     setLoading(false);
 
     if (result.success) {
+      // Use role from backend response when available
+      const role = result.data?.user?.role || (formData.email.includes('admin') ? 'admin' : formData.email.includes('instructor') ? 'instructor' : 'student');
+      localStorage.setItem('role', role);
+
       // Navigate to role-specific dashboard
       if (role === 'student') {
         navigate('/student/dashboard');
@@ -92,22 +91,24 @@ const Login = () => {
     }
   };
 
-  const handleQuickLogin = (email, password, role) => {
+  const handleQuickLogin = (email, password, roleHint) => {
     setFormData({ email, password });
-    localStorage.setItem('role', role);
     // Auto-submit after a brief delay
-    setTimeout(() => {
-      login(email, password).then((result) => {
-        if (result.success) {
-          if (role === 'student') {
-            navigate('/student/dashboard');
-          } else if (role === 'instructor') {
-            navigate('/instructor/dashboard');
-          } else if (role === 'admin') {
-            navigate('/admin/dashboard');
-          }
+    setTimeout(async () => {
+      const result = await login(email, password);
+      if (result.success) {
+        const role = result.data?.user?.role || roleHint;
+        localStorage.setItem('role', role);
+        if (role === 'student') {
+          navigate('/student/dashboard');
+        } else if (role === 'instructor') {
+          navigate('/instructor/dashboard');
+        } else if (role === 'admin') {
+          navigate('/admin/dashboard');
+        } else {
+          navigate('/dashboard');
         }
-      });
+      }
     }, 100);
   };
 

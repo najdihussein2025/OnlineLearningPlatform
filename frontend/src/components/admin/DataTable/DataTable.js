@@ -62,13 +62,15 @@ const DataTable = ({
                 if (column.render) {
                   try {
                     let renderResult;
-                    if (accessor) {
-                      // When accessor is defined, always pass (cellValue, row)
-                      // Render functions can use first param for value, second for row, or both
+
+                    // Choose how to call render based on function arity to support existing components
+                    const fnArity = column.render.length || 0;
+                    if (fnArity >= 2) {
+                      // render expects (value, row)
                       renderResult = column.render(cellValue, row);
                     } else {
-                      // When no accessor, pass the full row object
-                      renderResult = column.render(row);
+                      // render expects a single arg (most components expect the full row)
+                      renderResult = column.render(row, cellValue);
                     }
                     
                     // Validate render result is not an object (unless it's a React element)

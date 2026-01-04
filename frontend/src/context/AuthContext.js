@@ -10,40 +10,48 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     // Check if user is already logged in
     const token = authService.getToken();
-    const currentUser = authService.getCurrentUser();
-    const role = localStorage.getItem('role');
-    
-    if (token && currentUser) {
-      setUser({ ...currentUser, role: role || 'student' });
-    } else {
-      // Clear any stale data if not authenticated
-      setUser(null);
-      localStorage.removeItem('role');
-    }
-    setLoading(false);
+
+    let mounted = true;
+    const loadCurrentUser = async () => {
+      try {
+        if (!token) {
+          setUser(null);
+          localStorage.removeItem('role');
+          return;
+        }
+
+        // Try to refresh user info from server (auth/me)
+        const me = await authService.me();
+        if (!mounted) return;
+        const role = (me?.role || 'student').toLowerCase();
+        localStorage.setItem('role', role);
+        setUser({ ...me, role });
+      } catch (err) {
+        // if me fails (e.g., invalid token), clear auth
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('role');
+        setUser(null);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    loadCurrentUser();
+
+    return () => { mounted = false; };
   }, []);
 
   const login = async (email, password) => {
     try {
       const data = await authService.login(email, password);
       const userData = data.user || { email, firstName: email.split('@')[0] };
-      // Set default role to student if not provided (for UI demo)
-      const role = data.user?.role || localStorage.getItem('role') || 'student';
+      // Normalize role to lowercase and set default to student
+      const role = (data.user?.role || localStorage.getItem('role') || 'student').toLowerCase();
       localStorage.setItem('role', role);
       setUser({ ...userData, role });
       return { success: true, data };
     } catch (error) {
-      // For UI testing without backend: create mock auth
-      if (!error.response) {
-        const userData = { email, firstName: email.split('@')[0], id: Date.now() };
-        const role = email.includes('admin') ? 'admin' : 
-                     email.includes('instructor') ? 'instructor' : 'student';
-        localStorage.setItem('token', 'mock-token-' + Date.now());
-        localStorage.setItem('user', JSON.stringify(userData));
-        localStorage.setItem('role', role);
-        setUser({ ...userData, role });
-        return { success: true, data: { user: userData } };
-      }
       return {
         success: false,
         error: error.response?.data?.message || 'Login failed',
@@ -55,23 +63,12 @@ export const AuthProvider = ({ children }) => {
     try {
       const data = await authService.register(userData);
       const newUser = data.user || { ...userData, id: Date.now() };
-      // Set default role to student if not provided (for UI demo)
-      const role = data.user?.role || localStorage.getItem('role') || 'student';
+      // Normalize role to lowercase and set default to student
+      const role = (data.user?.role || localStorage.getItem('role') || 'student').toLowerCase();
       localStorage.setItem('role', role);
       setUser({ ...newUser, role });
       return { success: true, data };
     } catch (error) {
-      // For UI testing without backend: create mock auth
-      if (!error.response) {
-        const newUser = { ...userData, id: Date.now() };
-        const role = userData.email.includes('admin') ? 'admin' : 
-                     userData.email.includes('instructor') ? 'instructor' : 'student';
-        localStorage.setItem('token', 'mock-token-' + Date.now());
-        localStorage.setItem('user', JSON.stringify(newUser));
-        localStorage.setItem('role', role);
-        setUser({ ...newUser, role });
-        return { success: true, data: { user: newUser } };
-      }
       return {
         success: false,
         error: error.response?.data?.message || 'Registration failed',

@@ -1,59 +1,40 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import DataTable from '../../../components/admin/DataTable/DataTable';
 import StatCard from '../../../components/admin/StatCard/StatCard';
+import api from '../../../services/api';
 import './InstructorQuizzes.css';
 
 const InstructorQuizzes = () => {
   const [filter, setFilter] = useState('all');
+  const [quizzes, setQuizzes] = useState([]);
+  const [courses, setCourses] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock data - would come from API
-  const quizzes = [
-    {
-      id: 1,
-      title: 'JavaScript Fundamentals Quiz',
-      course: 'Complete Web Development Bootcamp',
-      questions: 20,
-      passingScore: 70,
-      timeLimit: 30,
-      attempts: 245,
-      averageScore: 85,
-      status: 'active',
-    },
-    {
-      id: 2,
-      title: 'React Components Quiz',
-      course: 'Complete Web Development Bootcamp',
-      questions: 25,
-      passingScore: 75,
-      timeLimit: 45,
-      attempts: 180,
-      averageScore: 82,
-      status: 'active',
-    },
-    {
-      id: 3,
-      title: 'Python Basics Quiz',
-      course: 'Advanced Data Science with Python',
-      questions: 15,
-      passingScore: 70,
-      timeLimit: 30,
-      attempts: 120,
-      averageScore: 88,
-      status: 'active',
-    },
-    {
-      id: 4,
-      title: 'CSS Layout Quiz',
-      course: 'Complete Web Development Bootcamp',
-      questions: 18,
-      passingScore: 70,
-      timeLimit: 25,
-      attempts: 0,
-      averageScore: null,
-      status: 'draft',
-    },
-  ];
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        const courseRes = await api.get('/courses/mine');
+        if (!mounted) return;
+        const myCourses = courseRes.data || [];
+        setCourses(myCourses);
+
+        // fetch quizzes for every course in parallel
+        const quizzesPromises = myCourses.map(c => api.get(`/quizzes/byCourse/${c.id}`));
+        const quizzesResults = await Promise.all(quizzesPromises);
+        const all = quizzesResults.flatMap((r, idx) => (r.data || []).map(q => ({ ...q, courseTitle: myCourses[idx].title })));
+        if (!mounted) return;
+        setQuizzes(all);
+      } catch (err) {
+        console.error('Failed to load quizzes', err);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+    load();
+    return () => { mounted = false; };
+  }, []);
 
   const filteredQuizzes = quizzes.filter(quiz => {
     if (filter === 'all') return true;
@@ -102,7 +83,7 @@ const InstructorQuizzes = () => {
       render: (quiz) => (
         <div className="quiz-title-cell">
           <h4 className="quiz-title">{quiz.title}</h4>
-          <p className="quiz-course">{quiz.course}</p>
+          <p className="quiz-course">{quiz.courseTitle}</p>
         </div>
       ),
     },

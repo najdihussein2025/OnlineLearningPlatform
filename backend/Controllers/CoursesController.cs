@@ -3,6 +3,9 @@ using Microsoft.EntityFrameworkCore;
 using ids.Data;
 using ids.Models;
 using ids.Data.DTOs.Course;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace ids.Controllers
 {
@@ -21,6 +24,32 @@ namespace ids.Controllers
         public async Task<ActionResult<IEnumerable<CourseResponseDto>>> GetCourses()
         {
             var courses = await _context.Courses.ToListAsync();
+            var dtos = courses.Select(c => new CourseResponseDto
+            {
+                Id = c.Id,
+                Title = c.Title,
+                ShortDescription = c.ShortDescription,
+                LongDescription = c.LongDescription,
+                Category = c.Category,
+                Difficulty = c.Difficulty,
+                Thumbnail = c.Thumbnail,
+                CreatedBy = c.CreatedBy,
+                CreatedAt = c.CreatedAt,
+                IsPublished = c.IsPublished
+            }).ToList();
+
+            return Ok(dtos);
+        }
+
+        [Authorize]
+        [HttpGet("mine")]
+        public async Task<ActionResult<IEnumerable<CourseResponseDto>>> GetMyCourses()
+        {
+            // Get user id from JWT subject
+            var sub = User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub) ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!int.TryParse(sub, out var userId)) return Unauthorized();
+
+            var courses = await _context.Courses.Where(c => c.CreatedBy == userId).ToListAsync();
             var dtos = courses.Select(c => new CourseResponseDto
             {
                 Id = c.Id,
@@ -61,9 +90,14 @@ namespace ids.Controllers
             return Ok(dto);
         }
 
+        [Authorize(Roles = "instructor,admin")]
         [HttpPost]
         public async Task<ActionResult<CourseResponseDto>> CreateCourse(CreateCourseDto dto)
         {
+            // Set CreatedBy from the authenticated user (ignore any client-supplied value)
+            var sub = User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub) ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!int.TryParse(sub, out var userId)) return Unauthorized();
+
             var course = new Course
             {
                 Title = dto.Title,
@@ -72,7 +106,7 @@ namespace ids.Controllers
                 Category = dto.Category,
                 Difficulty = dto.Difficulty,
                 Thumbnail = dto.Thumbnail,
-                CreatedBy = dto.CreatedBy,
+                CreatedBy = userId,
                 IsPublished = dto.IsPublished
             };
 

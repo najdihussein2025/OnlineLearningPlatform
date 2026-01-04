@@ -19,6 +19,16 @@ export const authService = {
     return response.data;
   },
 
+  async me() {
+    const response = await api.get('/auth/me');
+    if (response.data) {
+      localStorage.setItem('user', JSON.stringify(response.data));
+      const role = (response.data.role || 'student').toLowerCase();
+      localStorage.setItem('role', role);
+    }
+    return response.data;
+  },
+
   async logout() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');

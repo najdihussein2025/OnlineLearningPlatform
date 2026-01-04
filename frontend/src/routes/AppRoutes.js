@@ -21,6 +21,7 @@ import StudentSettings from '../pages/Student/Settings/StudentSettings';
 import InstructorLayout from '../layouts/InstructorLayout';
 import InstructorDashboard from '../pages/Instructor/Dashboard/InstructorDashboard';
 import InstructorCourses from '../pages/Instructor/Courses/InstructorCourses';
+import NewCourse from '../pages/Instructor/Courses/NewCourse';
 import InstructorLessons from '../pages/Instructor/Lessons/InstructorLessons';
 import InstructorQuizzes from '../pages/Instructor/Quizzes/InstructorQuizzes';
 import InstructorStudents from '../pages/Instructor/Students/InstructorStudents';
@@ -88,6 +89,7 @@ const AppRoutes = () => {
       >
         <Route path="/instructor/dashboard" element={<InstructorDashboard />} />
         <Route path="/instructor/courses" element={<InstructorCourses />} />
+        <Route path="/instructor/courses/new" element={<NewCourse />} />
         <Route path="/instructor/lessons" element={<InstructorLessons />} />
         <Route path="/instructor/quizzes" element={<InstructorQuizzes />} />
         <Route path="/instructor/students" element={<InstructorStudents />} />

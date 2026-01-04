@@ -3,6 +3,9 @@ using Microsoft.EntityFrameworkCore;
 using ids.Data;
 using ids.Models;
 using ids.Data.DTOs.Lesson;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace ids.Controllers
 {
@@ -32,6 +35,33 @@ namespace ids.Controllers
                 EstimatedDuration = l.EstimatedDuration,
                 CreatedAt = l.CreatedAt
             }).ToList();
+            return Ok(dtos);
+        }
+
+        [Authorize]
+        [HttpGet("byCourse/{courseId}")]
+        public async Task<ActionResult<IEnumerable<LessonResponseDto>>> GetLessonsByCourse(int courseId)
+        {
+            var sub = User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub) ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!int.TryParse(sub, out var userId)) return Unauthorized();
+
+            var course = await _context.Courses.FindAsync(courseId);
+            if (course == null) return NotFound();
+            if (course.CreatedBy != userId) return Forbid();
+
+            var lessons = await _context.Lessons.Where(l => l.CourseId == courseId).ToListAsync();
+            var dtos = lessons.Select(l => new LessonResponseDto
+            {
+                Id = l.Id,
+                CourseId = l.CourseId,
+                Title = l.Title,
+                Content = l.Content,
+                VideoUrl = l.VideoUrl,
+                Order = l.Order,
+                EstimatedDuration = l.EstimatedDuration,
+                CreatedAt = l.CreatedAt
+            }).ToList();
+
             return Ok(dtos);
         }
 

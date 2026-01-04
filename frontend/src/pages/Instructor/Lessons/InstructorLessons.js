@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import DataTable from '../../../components/admin/DataTable/DataTable';
 import { useDashboardToast } from '../../../components/DashboardLayout/DashboardLayout';
+import api from '../../../services/api';
 import './InstructorLessons.css';
 
 const InstructorLessons = () => {
@@ -9,25 +10,50 @@ const InstructorLessons = () => {
   const courseId = searchParams.get('course');
   const { info } = useDashboardToast();
 
-  // Mock data - would come from API
-  const courses = [
-    { id: 1, title: 'Complete Web Development Bootcamp' },
-    { id: 2, title: 'Advanced Data Science with Python' },
-    { id: 3, title: 'UI/UX Design Fundamentals' },
-  ];
+  const [courses, setCourses] = useState([]);
+  const [lessons, setLessons] = useState([]);
+  const [loadingCourses, setLoadingCourses] = useState(true);
+  const [loadingLessons, setLoadingLessons] = useState(false);
 
-  const selectedCourseId = courseId ? parseInt(courseId) : 1;
-  const selectedCourse = courses.find(c => c.id === selectedCourseId) || courses[0];
+  useEffect(() => {
+    let mounted = true;
+    const loadCourses = async () => {
+      try {
+        const res = await api.get('/courses/mine');
+        if (!mounted) return;
+        setCourses(res.data || []);
+      } catch (err) {
+        console.error('Failed to load courses', err);
+      } finally {
+        if (mounted) setLoadingCourses(false);
+      }
+    };
+    loadCourses();
+    return () => { mounted = false; };
+  }, []);
 
-  const lessons = [
-    { id: 1, title: 'Introduction to Web Development', type: 'video', duration: '15 min', order: 1, courseId: 1 },
-    { id: 2, title: 'HTML Basics', type: 'video', duration: '20 min', order: 2, courseId: 1 },
-    { id: 3, title: 'CSS Fundamentals', type: 'video', duration: '25 min', order: 3, courseId: 1 },
-    { id: 4, title: 'JavaScript Basics', type: 'video', duration: '30 min', order: 4, courseId: 1 },
-    { id: 5, title: 'React Introduction', type: 'video', duration: '40 min', order: 5, courseId: 1 },
-    { id: 6, title: 'Advanced React Patterns', type: 'article', duration: '30 min', order: 6, courseId: 1 },
-    { id: 7, title: 'Project Setup Guide', type: 'attachment', duration: '15 min', order: 7, courseId: 1 },
-  ].filter(l => l.courseId === selectedCourseId);
+  useEffect(() => {
+    const selectedCourseId = courseId ? parseInt(courseId) : courses[0]?.id;
+    if (!selectedCourseId) return;
+    let mounted = true;
+    const loadLessons = async () => {
+      setLoadingLessons(true);
+      try {
+        const res = await api.get(`/lessons/byCourse/${selectedCourseId}`);
+        if (!mounted) return;
+        setLessons(res.data || []);
+      } catch (err) {
+        console.error('Failed to load lessons', err);
+      } finally {
+        if (mounted) setLoadingLessons(false);
+      }
+    };
+    loadLessons();
+    return () => { mounted = false; };
+  }, [courseId, courses]);
+
+  const selectedCourseIdNum = courseId ? parseInt(courseId) : courses[0]?.id || null;
+  const selectedCourse = courses.find(c => c.id === selectedCourseIdNum) || null;
 
   const getLessonTypeIcon = (type) => {
     switch (type) {
@@ -119,7 +145,7 @@ const InstructorLessons = () => {
           <h1 className="page-title">Lesson Management</h1>
           <p className="page-subtitle">Create and organize lessons for your courses</p>
         </div>
-        <Link to={`/instructor/lessons/new?course=${selectedCourseId}`} className="btn-primary">
+        <Link to={`/instructor/lessons/new?course=${selectedCourseIdNum}`} className="btn-primary">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M12 5V19M5 12H19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
@@ -131,7 +157,7 @@ const InstructorLessons = () => {
         <label htmlFor="course-select">Select Course:</label>
         <select
           id="course-select"
-          value={selectedCourseId}
+          value={selectedCourseIdNum}
           onChange={(e) => window.location.href = `/instructor/lessons?course=${e.target.value}`}
           className="course-select"
         >
@@ -142,7 +168,7 @@ const InstructorLessons = () => {
       </div>
 
       <div className="lessons-info">
-        <p className="lessons-count">{lessons.length} lessons in <strong>{selectedCourse.title}</strong></p>
+        <p className="lessons-count">{lessons.length} lessons in <strong>{selectedCourse?.title || '—'}</strong></p>
       </div>
 
       <DataTable

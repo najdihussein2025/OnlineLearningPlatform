@@ -3,6 +3,9 @@ using Microsoft.EntityFrameworkCore;
 using ids.Data;
 using ids.Models;
 using ids.Data.DTOs.Quiz;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace ids.Controllers
 {
@@ -21,6 +24,31 @@ namespace ids.Controllers
         public async Task<ActionResult<IEnumerable<QuizResponseDto>>> GetQuizzes()
         {
             var quizzes = await _context.Quizzes.ToListAsync();
+            var dtos = quizzes.Select(q => new QuizResponseDto
+            {
+                Id = q.Id,
+                CourseId = q.CourseId,
+                LessonId = q.LessonId,
+                Title = q.Title,
+                PassingScore = q.PassingScore,
+                TimeLimit = q.TimeLimit
+            }).ToList();
+
+            return Ok(dtos);
+        }
+
+        [Authorize]
+        [HttpGet("byCourse/{courseId}")]
+        public async Task<ActionResult<IEnumerable<QuizResponseDto>>> GetQuizzesByCourse(int courseId)
+        {
+            var sub = User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub) ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!int.TryParse(sub, out var userId)) return Unauthorized();
+
+            var course = await _context.Courses.FindAsync(courseId);
+            if (course == null) return NotFound();
+            if (course.CreatedBy != userId) return Forbid();
+
+            var quizzes = await _context.Quizzes.Where(q => q.CourseId == courseId).ToListAsync();
             var dtos = quizzes.Select(q => new QuizResponseDto
             {
                 Id = q.Id,

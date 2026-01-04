@@ -1,71 +1,47 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import DataTable from '../../../components/admin/DataTable/DataTable';
+import api from '../../../services/api';
 import './InstructorCourses.css';
 
 const InstructorCourses = () => {
   const [filter, setFilter] = useState('all');
+  const [courses, setCourses] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock data - would come from API
-  const courses = [
-    {
-      id: 1,
-      title: 'Complete Web Development Bootcamp',
-      status: 'published',
-      enrollments: 120,
-      rating: 4.8,
-      revenue: '$12,000',
-      created: '2024-01-01',
-      lastUpdated: '2024-01-25',
-    },
-    {
-      id: 2,
-      title: 'Advanced Data Science with Python',
-      status: 'published',
-      enrollments: 85,
-      rating: 4.9,
-      revenue: '$8,500',
-      created: '2024-01-05',
-      lastUpdated: '2024-01-20',
-    },
-    {
-      id: 3,
-      title: 'UI/UX Design Fundamentals',
-      status: 'published',
-      enrollments: 40,
-      rating: 4.7,
-      revenue: '$4,000',
-      created: '2024-01-10',
-      lastUpdated: '2024-01-18',
-    },
-    {
-      id: 4,
-      title: 'React Advanced Patterns',
-      status: 'draft',
-      enrollments: 0,
-      rating: null,
-      revenue: '$0',
-      created: '2024-01-15',
-      lastUpdated: '2024-01-22',
-    },
-    {
-      id: 5,
-      title: 'Node.js Backend Development',
-      status: 'pending',
-      enrollments: 0,
-      rating: null,
-      revenue: '$0',
-      created: '2024-01-20',
-      lastUpdated: '2024-01-24',
-    },
-  ];
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        const res = await api.get('/courses/mine');
+        if (!mounted) return;
+        setCourses(res.data || []);
+      } catch (err) {
+        console.error('Failed to load instructor courses', err);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+    load();
+    return () => { mounted = false; };
+  }, []);
+
+  if (loading) {
+    return <div className="instructor-courses-page">Loading courses...</div>;
+  }
+
+  const getCourseStatus = (course) => {
+    const isPublished = course.isPublished ?? course.IsPublished ?? false;
+    return isPublished ? 'published' : 'draft';
+  };
 
   const filteredCourses = courses.filter(course => {
     if (filter === 'all') return true;
-    return course.status === filter;
+    return getCourseStatus(course) === filter;
   });
 
-  const getStatusBadge = (status) => {
+  const getStatusBadge = (course) => {
+    const status = getCourseStatus(course);
     switch (status) {
       case 'published':
         return <span className="status-badge status-published">Published</span>;
@@ -91,36 +67,31 @@ const InstructorCourses = () => {
     {
       header: 'Status',
       accessor: 'status',
-      render: (course) => getStatusBadge(course.status),
+      render: (course) => getStatusBadge(course),
     },
     {
       header: 'Enrollments',
       accessor: 'enrollments',
+      render: (course) => course.enrollments ?? '-',
     },
     {
       header: 'Rating',
       accessor: 'rating',
-      render: (course) => (
-        course.rating ? (
-          <span className="rating">⭐ {course.rating}</span>
-        ) : (
-          <span className="no-rating">-</span>
-        )
-      ),
+      render: (course) => course.rating ? <span className="rating">⭐ {course.rating}</span> : <span className="no-rating">-</span>,
     },
     {
       header: 'Revenue',
       accessor: 'revenue',
+      render: (course) => course.revenue ?? '-',
     },
     {
       header: 'Last Updated',
-      accessor: 'lastUpdated',
-      render: (course) => new Date(course.lastUpdated).toLocaleDateString('en-US', { 
-        month: 'short', 
-        day: 'numeric',
-        year: 'numeric'
-      }),
-    },
+      accessor: 'createdAt',
+      render: (course) => {
+        const ts = course.createdAt || course.CreatedAt || course.created || null;
+        return ts ? new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-';
+      }
+    }
   ];
 
   const actions = (course) => (
@@ -175,13 +146,13 @@ const InstructorCourses = () => {
             className={`filter-tab ${filter === 'published' ? 'active' : ''}`}
             onClick={() => setFilter('published')}
           >
-            Published ({courses.filter(c => c.status === 'published').length})
+            Published ({courses.filter(c => getCourseStatus(c) === 'published').length})
           </button>
           <button
             className={`filter-tab ${filter === 'draft' ? 'active' : ''}`}
             onClick={() => setFilter('draft')}
           >
-            Draft ({courses.filter(c => c.status === 'draft').length})
+            Draft ({courses.filter(c => getCourseStatus(c) === 'draft').length})
           </button>
           <button
             className={`filter-tab ${filter === 'pending' ? 'active' : ''}`}

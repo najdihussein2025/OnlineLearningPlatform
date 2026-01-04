@@ -1,10 +1,19 @@
 using Microsoft.EntityFrameworkCore;
-//my server name :DESKTOP-2TUOJHH \SQLEXPRESS
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+using ids.Data;
+
 var builder = WebApplication.CreateBuilder(args);
+
+// Force the backend to listen on http://localhost:5000 so frontend can reach it
+builder.WebHost.UseUrls("http://localhost:5000");
 
 // Add services to the container.
 
 builder.Services.AddControllers();
+
+
 
 // Add DbContext
 builder.Services.AddDbContext<ids.Data.AppDbContext>(options =>
@@ -14,19 +23,64 @@ builder.Services.AddDbContext<ids.Data.AppDbContext>(options =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// JWT configuration
+var jwt = builder.Configuration.GetSection("Jwt");
+var key = Encoding.UTF8.GetBytes(jwt["Key"] ?? "dev_secret_replace_with_env_or_user_secrets_change_me");
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.RequireHttpsMetadata = false;
+    options.SaveToken = true;
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = jwt["Issuer"],
+        ValidAudience = jwt["Audience"],
+        IssuerSigningKey = new SymmetricSecurityKey(key),
+        ClockSkew = TimeSpan.Zero
+    };
+});
+
+builder.Services.AddAuthorization();
+
 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReact",
         policy =>
         {
-            policy.WithOrigins("http://localhost:5173")
+            // Allow the ports used by your frontends during development
+            policy.WithOrigins("http://localhost:5173", "http://localhost:3000")
                   .AllowAnyHeader()
                   .AllowAnyMethod();
         });
 });
 
 var app = builder.Build();
+
+// Run migrations and seed default accounts on startup
+using (var scope = app.Services.CreateScope())
+{
+    try
+    {
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        // Ensure database is created and seeded
+        await SeedData.InitializeAsync(db);
+    }
+    catch (Exception ex)
+    {
+        var logger = scope.ServiceProvider.GetService<ILoggerFactory>()?.CreateLogger("SeedData");
+        logger?.LogError(ex, "An error occurred seeding the DB.");
+    }
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -35,12 +89,16 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+// Do not force HTTPS redirection during local dev to avoid issues when frontend uses HTTP
+// app.UseHttpsRedirection();
 
 app.UseCors("AllowReact");
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+Console.WriteLine("Backend starting. Listening on http://localhost:5000");
 
 app.Run();

@@ -3,6 +3,9 @@ using Microsoft.EntityFrameworkCore;
 using ids.Data;
 using ids.Models;
 using ids.Data.DTOs.Enrollment;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace ids.Controllers
 {
@@ -21,6 +24,22 @@ namespace ids.Controllers
         public async Task<ActionResult<IEnumerable<EnrollmentResponseDto>>> GetEnrollments()
         {
             var enrollments = await _context.Enrollments.ToListAsync();
+            var dtos = enrollments.Select(e => new EnrollmentResponseDto { Id = e.Id, UserId = e.UserId, CourseId = e.CourseId, EnrolledAt = e.EnrolledAt }).ToList();
+            return Ok(dtos);
+        }
+
+        [Authorize]
+        [HttpGet("byCourse/{courseId}")]
+        public async Task<ActionResult<IEnumerable<EnrollmentResponseDto>>> GetEnrollmentsByCourse(int courseId)
+        {
+            var sub = User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub) ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!int.TryParse(sub, out var userId)) return Unauthorized();
+
+            var course = await _context.Courses.FindAsync(courseId);
+            if (course == null) return NotFound();
+            if (course.CreatedBy != userId) return Forbid();
+
+            var enrollments = await _context.Enrollments.Where(e => e.CourseId == courseId).Include(e => e.User).ToListAsync();
             var dtos = enrollments.Select(e => new EnrollmentResponseDto { Id = e.Id, UserId = e.UserId, CourseId = e.CourseId, EnrolledAt = e.EnrolledAt }).ToList();
             return Ok(dtos);
         }
