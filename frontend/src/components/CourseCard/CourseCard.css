@@ -1,5 +1,11 @@
 /* CourseCard Styles */
 
+.course-card-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
 .course-card {
   display: flex;
   flex-direction: column;
@@ -10,7 +16,7 @@
   transition: all var(--transition-base);
   text-decoration: none;
   color: inherit;
-  height: 100%;
+  flex: 1;
   box-shadow: var(--shadow);
 }
 
@@ -194,6 +200,35 @@
 
 .course-card:hover .course-card-footer svg {
   transform: translateX(4px);
+}
+
+.course-card-cta.enrolled {
+  color: var(--success-color, #22c55e);
+}
+
+.course-card-enroll-btn {
+  width: 100%;
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-md) var(--spacing-lg);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-white);
+  background-color: var(--primary-color);
+  border: none;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.course-card-enroll-btn:hover:not(:disabled) {
+  background-color: var(--primary-dark);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.course-card-enroll-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* Responsive Design */

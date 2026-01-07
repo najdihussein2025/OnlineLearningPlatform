@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using ids.Data;
 using ids.Models;
 using ids.Data.DTOs.User;
@@ -10,6 +11,7 @@ using System.IdentityModel.Tokens.Jwt;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 
 namespace ids.Controllers
 {
@@ -19,11 +21,13 @@ namespace ids.Controllers
     {
         private readonly AppDbContext _context;
         private readonly IConfiguration _config;
+        private readonly PasswordHasher<User> _passwordHasher;
 
         public AuthController(AppDbContext context, IConfiguration config)
         {
             _context = context;
             _config = config;
+            _passwordHasher = new PasswordHasher<User>();
         }
 
         private string HashPassword(string password)
@@ -44,8 +48,8 @@ namespace ids.Controllers
             {
                 new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
                 new Claim(JwtRegisteredClaimNames.Email, user.Email),
-                // Default role to 'student' when missing so UI and authorization behave consistently
-                new Claim(ClaimTypes.Role, (user.Role ?? "student").ToLowerInvariant()),
+                // Use role as stored in database (default to "Student" if missing)
+                new Claim(ClaimTypes.Role, user.Role ?? "Student"),
             };
 
             var keyBytes = Encoding.UTF8.GetBytes(key);
@@ -63,35 +67,99 @@ namespace ids.Controllers
         }
 
         [HttpPost("register")]
-        public async Task<ActionResult<AuthResponseDto>> Register(RegisterDto dto)
+        public async Task<ActionResult> Register(RegisterDto dto)
         {
-            if (await _context.Users.AnyAsync(u => u.Email == dto.Email))
-                return BadRequest(new { message = "Email already in use" });
+            // Validation: Email is required and valid
+            if (string.IsNullOrWhiteSpace(dto.Email))
+            {
+                return BadRequest(new { message = "Email is required" });
+            }
 
+            if (!IsValidEmail(dto.Email))
+            {
+                return BadRequest(new { message = "Email is not valid" });
+            }
+
+            // Validation: Email must be unique
+            if (await _context.Users.AnyAsync(u => u.Email == dto.Email))
+            {
+                return Conflict(new { message = "Email already exists" });
+            }
+
+            // Validation: FullName is required
+            if (string.IsNullOrWhiteSpace(dto.FullName))
+            {
+                return BadRequest(new { message = "Full name is required" });
+            }
+
+            // Validation: Password requirements
+            var passwordValidation = ValidatePassword(dto.Password);
+            if (!passwordValidation.IsValid)
+            {
+                return BadRequest(new { message = passwordValidation.ErrorMessage });
+            }
+
+            // Validation: ConfirmPassword must match Password
+            if (dto.Password != dto.ConfirmPassword)
+            {
+                return BadRequest(new { message = "Password and confirm password do not match" });
+            }
+
+            // Create user - Role is ALWAYS "Student" for new registrations
+            // Role cannot be set from frontend and is never accepted from RegisterDto
             var user = new User
             {
-                FullName = dto.FullName,
-                Email = dto.Email,
-                HashedPassword = HashPassword(dto.Password),
-                // store normalized lowercase role
-                Role = (dto.Role ?? "student").ToLowerInvariant()
+                FullName = dto.FullName.Trim(),
+                Email = dto.Email.Trim().ToLowerInvariant(),
+                HashedPassword = _passwordHasher.HashPassword(user: null, password: dto.Password),
+                Role = "Student" // Always "Student" - never accept role from frontend
             };
 
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
 
-            var token = CreateToken(user);
+            return Ok(new { message = "Registration successful" });
+        }
 
-            var userDto = new UserResponseDto
+        private bool IsValidEmail(string email)
+        {
+            if (string.IsNullOrWhiteSpace(email))
+                return false;
+
+            try
             {
-                Id = user.Id,
-                FullName = user.FullName,
-                Email = user.Email,
-                Role = (user.Role ?? "student").ToLowerInvariant(),
-                CreatedAt = user.CreatedAt
-            };
+                var emailRegex = new Regex(@"^[^@\s]+@[^@\s]+\.[^@\s]+$", RegexOptions.IgnoreCase);
+                return emailRegex.IsMatch(email);
+            }
+            catch
+            {
+                return false;
+            }
+        }
 
-            return Ok(new AuthResponseDto { Token = token, User = userDto });
+        private (bool IsValid, string ErrorMessage) ValidatePassword(string password)
+        {
+            if (string.IsNullOrWhiteSpace(password))
+            {
+                return (false, "Password is required");
+            }
+
+            if (password.Length < 8)
+            {
+                return (false, "Password must be at least 8 characters long");
+            }
+
+            if (!password.Any(char.IsUpper))
+            {
+                return (false, "Password must contain at least one uppercase letter");
+            }
+
+            if (!password.Any(char.IsDigit))
+            {
+                return (false, "Password must contain at least one number");
+            }
+
+            return (true, null);
         }
 
         [Authorize]
@@ -123,8 +191,35 @@ namespace ids.Controllers
             if (user == null)
                 return Unauthorized(new { message = "Invalid credentials" });
 
-            var hashed = HashPassword(dto.Password);
-            if (user.HashedPassword != hashed)
+            // Try PasswordHasher first (for new users), fallback to SHA256 (for existing users)
+            bool passwordValid = false;
+            var passwordHasherResult = _passwordHasher.VerifyHashedPassword(user: null, user.HashedPassword, dto.Password);
+            
+            if (passwordHasherResult == PasswordVerificationResult.Success || 
+                passwordHasherResult == PasswordVerificationResult.SuccessRehashNeeded)
+            {
+                passwordValid = true;
+                // Rehash if needed (upgrade from old hash)
+                if (passwordHasherResult == PasswordVerificationResult.SuccessRehashNeeded)
+                {
+                    user.HashedPassword = _passwordHasher.HashPassword(user: null, dto.Password);
+                    await _context.SaveChangesAsync();
+                }
+            }
+            else
+            {
+                // Fallback to SHA256 for backward compatibility with existing users
+                var hashed = HashPassword(dto.Password);
+                if (user.HashedPassword == hashed)
+                {
+                    passwordValid = true;
+                    // Upgrade to PasswordHasher
+                    user.HashedPassword = _passwordHasher.HashPassword(user: null, dto.Password);
+                    await _context.SaveChangesAsync();
+                }
+            }
+
+            if (!passwordValid)
                 return Unauthorized(new { message = "Invalid credentials" });
 
             var token = CreateToken(user);

@@ -2,9 +2,9 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import './CourseCard.css';
 
-const CourseCard = ({ course }) => {
+const CourseCard = ({ course, isEnrolled, onEnroll, isEnrolling, showEnrollButton = false }) => {
   const getDifficultyColor = (difficulty) => {
-    switch (difficulty.toLowerCase()) {
+    switch (difficulty?.toLowerCase()) {
       case 'beginner':
         return 'badge-beginner';
       case 'intermediate':
@@ -25,10 +25,19 @@ const CourseCard = ({ course }) => {
       'programming': 'category-programming',
       'marketing': 'category-marketing',
     };
-    return colors[category.toLowerCase()] || 'category-default';
+    return colors[category?.toLowerCase()] || 'category-default';
+  };
+
+  const handleEnrollClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onEnroll && !isEnrolling) {
+      onEnroll(course.id);
+    }
   };
 
   return (
+    <div className="course-card-wrapper">
     <Link to={`/course/${course.id}`} className="course-card">
       <div className="course-card-thumbnail">
         {course.thumbnail ? (
@@ -75,13 +84,34 @@ const CourseCard = ({ course }) => {
           </div>
         </div>
         <div className="course-card-footer">
-          <span className="course-card-cta">View Course</span>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M9 18L15 12L9 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
+          {isEnrolled ? (
+            <>
+              <span className="course-card-cta enrolled">Enrolled</span>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M20 6L9 17L4 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </>
+          ) : (
+            <>
+              <span className="course-card-cta">View Course</span>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M9 18L15 12L9 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </>
+          )}
         </div>
       </div>
     </Link>
+    {showEnrollButton && !isEnrolled && (
+      <button
+        className="course-card-enroll-btn"
+        onClick={handleEnrollClick}
+        disabled={isEnrolling}
+      >
+        {isEnrolling ? 'Enrolling...' : 'Enroll Now'}
+      </button>
+    )}
+    </div>
   );
 };
 

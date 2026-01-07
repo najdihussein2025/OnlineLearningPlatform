@@ -62,11 +62,8 @@ export const AuthProvider = ({ children }) => {
   const register = async (userData) => {
     try {
       const data = await authService.register(userData);
-      const newUser = data.user || { ...userData, id: Date.now() };
-      // Normalize role to lowercase and set default to student
-      const role = (data.user?.role || localStorage.getItem('role') || 'student').toLowerCase();
-      localStorage.setItem('role', role);
-      setUser({ ...newUser, role });
+      // Registration successful - user must login to get token
+      // Do not store any user data or role on registration
       return { success: true, data };
     } catch (error) {
       return {

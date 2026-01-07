@@ -17,6 +17,8 @@ namespace ids.Data
         public DbSet<Answer> Answers { get; set; }
         public DbSet<QuizAttempt> QuizAttempts { get; set; }
         public DbSet<LessonCompletion> LessonCompletions { get; set; }
+        public DbSet<LessonVideoProgress> LessonVideoProgresses { get; set; }
+        public DbSet<OfflineVideoDownload> OfflineVideoDownloads { get; set; }
         public DbSet<Certificate> Certificates { get; set; }
         public DbSet<Enrollment> Enrollments { get; set; }
         public DbSet<Attachment> Attachments { get; set; }
@@ -90,6 +92,26 @@ namespace ids.Data
                 entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.Restrict);
             });
 
+            modelBuilder.Entity<LessonVideoProgress>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.HasOne(e => e.Lesson).WithMany().HasForeignKey(e => e.LessonId).OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.Restrict);
+                // Ensure one progress record per user per lesson
+                entity.HasIndex(e => new { e.UserId, e.LessonId }).IsUnique();
+            });
+
+            modelBuilder.Entity<OfflineVideoDownload>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.HasOne(e => e.Lesson).WithMany().HasForeignKey(e => e.LessonId).OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.Restrict);
+                entity.Property(e => e.DeviceId).HasMaxLength(200);
+                // Index for efficient queries
+                entity.HasIndex(e => new { e.UserId, e.LessonId });
+                entity.HasIndex(e => e.ExpiresAt);
+            });
+
             modelBuilder.Entity<Certificate>(entity =>
             {
                 entity.HasKey(e => e.Id);
@@ -100,6 +122,7 @@ namespace ids.Data
             modelBuilder.Entity<Enrollment>(entity =>
             {
                 entity.HasKey(e => e.Id);
+                entity.Property(e => e.Status).HasConversion<int>();
                 entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.Cascade);
                 entity.HasOne(e => e.Course).WithMany(c => c.Enrollments).HasForeignKey(e => e.CourseId).OnDelete(DeleteBehavior.Cascade);
             });

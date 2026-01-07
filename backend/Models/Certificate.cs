@@ -12,6 +12,7 @@ namespace ids.Models
         public User User { get; set; }
 
         public string DownloadUrl { get; set; }
+        public string? VerificationCode { get; set; }
         public DateTime GeneratedAt { get; set; } = DateTime.UtcNow;
     }
 }

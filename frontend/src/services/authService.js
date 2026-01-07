@@ -6,16 +6,17 @@ export const authService = {
     if (response.data.token) {
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
+      // Store role in localStorage for easy access
+      if (response.data.user?.role) {
+        localStorage.setItem('role', response.data.user.role.toLowerCase());
+      }
     }
     return response.data;
   },
 
   async register(userData) {
     const response = await api.post('/auth/register', userData);
-    if (response.data.token) {
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
-    }
+    // Registration does not return token - user must login after registration
     return response.data;
   },
 

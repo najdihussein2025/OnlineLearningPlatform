@@ -12,6 +12,7 @@ namespace ids.Models
         public User User { get; set; }
 
         public int Score { get; set; }
+        public bool Passed { get; set; }
         public DateTime AttemptDate { get; set; } = DateTime.UtcNow;
     }
 }

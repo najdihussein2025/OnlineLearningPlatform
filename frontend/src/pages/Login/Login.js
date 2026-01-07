@@ -72,8 +72,27 @@ const Login = () => {
     setLoading(false);
 
     if (result.success) {
-      // Use role from backend response when available
-      const role = result.data?.user?.role || (formData.email.includes('admin') ? 'admin' : formData.email.includes('instructor') ? 'instructor' : 'student');
+      // Extract role from backend response - normalize to lowercase
+      let role = 'student'; // default
+      
+      if (result.data?.user?.role) {
+        role = result.data.user.role.toLowerCase();
+      } else if (result.data?.user) {
+        // Try to get role from user object directly
+        role = (result.data.user.role || 'student').toLowerCase();
+      } else {
+        // Fallback: check email pattern or use default
+        const emailLower = formData.email.toLowerCase();
+        if (emailLower.includes('admin')) {
+          role = 'admin';
+        } else if (emailLower.includes('instructor')) {
+          role = 'instructor';
+        } else {
+          role = 'student';
+        }
+      }
+      
+      // Ensure role is stored in localStorage
       localStorage.setItem('role', role);
 
       // Navigate to role-specific dashboard
@@ -84,7 +103,8 @@ const Login = () => {
       } else if (role === 'admin') {
         navigate('/admin/dashboard');
       } else {
-        navigate('/dashboard');
+        // Default fallback to student dashboard
+        navigate('/student/dashboard');
       }
     } else {
       setError(result.error);
@@ -97,8 +117,17 @@ const Login = () => {
     setTimeout(async () => {
       const result = await login(email, password);
       if (result.success) {
-        const role = result.data?.user?.role || roleHint;
+        // Extract role from backend response - normalize to lowercase
+        let role = 'student'; // default
+        
+        if (result.data?.user?.role) {
+          role = result.data.user.role.toLowerCase();
+        } else if (roleHint) {
+          role = roleHint.toLowerCase();
+        }
+        
         localStorage.setItem('role', role);
+        
         if (role === 'student') {
           navigate('/student/dashboard');
         } else if (role === 'instructor') {
@@ -106,7 +135,8 @@ const Login = () => {
         } else if (role === 'admin') {
           navigate('/admin/dashboard');
         } else {
-          navigate('/dashboard');
+          // Default fallback to student dashboard
+          navigate('/student/dashboard');
         }
       }
     }, 100);
