@@ -50,5 +50,55 @@ export const studentService = {
       throw error;
     }
   },
+
+  /**
+   * Get student profile data
+   * @returns {Promise<Object>}
+   */
+  async getProfile() {
+    try {
+      const response = await api.get('/student/profile');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Update student profile (full name only)
+   * @param {string} fullName - The full name
+   * @returns {Promise<Object>}
+   */
+  async updateProfile(fullName) {
+    try {
+      const response = await api.put('/student/profile', { fullName });
+      return response.data;
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Change student password
+   * @param {string} currentPassword - Current password
+   * @param {string} newPassword - New password
+   * @param {string} confirmPassword - Confirm new password
+   * @returns {Promise<Object>}
+   */
+  async changePassword(currentPassword, newPassword, confirmPassword) {
+    try {
+      const response = await api.put('/student/change-password', {
+        currentPassword,
+        newPassword,
+        confirmPassword
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error changing password:', error);
+      throw error;
+    }
+  },
 };
 

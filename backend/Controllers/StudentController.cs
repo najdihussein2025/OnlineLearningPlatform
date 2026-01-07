@@ -7,10 +7,12 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.AspNetCore.Identity;
 using ids.Data;
 using ids.Models;
 using ids.Data.DTOs.QuizAttempt;
 using ids.Data.DTOs.Student;
+using ids.Data.DTOs.User;
 using ids.Services;
 
 namespace ids.Controllers
@@ -23,12 +25,14 @@ namespace ids.Controllers
         private readonly AppDbContext _context;
         private readonly IConfiguration _configuration;
         private readonly CertificatePdfService _pdfService;
+        private readonly PasswordHasher<User> _passwordHasher;
 
         public StudentController(AppDbContext context, IConfiguration configuration, CertificatePdfService pdfService)
         {
             _context = context;
             _configuration = configuration;
             _pdfService = pdfService;
+            _passwordHasher = new PasswordHasher<User>();
         }
 
         [HttpGet("dashboard")]
@@ -2700,6 +2704,154 @@ namespace ids.Controllers
                 Console.WriteLine($"Error downloading certificate {certificateId}: {ex.Message}");
                 Console.WriteLine($"Stack trace: {ex.StackTrace}");
                 return StatusCode(500, new { message = "Error generating certificate PDF" });
+            }
+        }
+
+        [HttpGet("profile")]
+        [Authorize(Roles = "Student")]
+        public async Task<ActionResult> GetProfile()
+        {
+            try
+            {
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst(JwtRegisteredClaimNames.Sub);
+                if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out var userId))
+                {
+                    return Unauthorized(new { message = "Invalid user token" });
+                }
+
+                var user = await _context.Users.FindAsync(userId);
+                if (user == null)
+                {
+                    return NotFound(new { message = "User not found" });
+                }
+
+                return Ok(new
+                {
+                    fullName = user.FullName,
+                    email = user.Email
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error fetching profile: {ex.Message}");
+                return StatusCode(500, new { message = "Error fetching profile" });
+            }
+        }
+
+        [HttpPut("profile")]
+        [Authorize(Roles = "Student")]
+        public async Task<ActionResult> UpdateProfile(UpdateProfileDto dto)
+        {
+            try
+            {
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst(JwtRegisteredClaimNames.Sub);
+                if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out var userId))
+                {
+                    return Unauthorized(new { message = "Invalid user token" });
+                }
+
+                if (string.IsNullOrWhiteSpace(dto?.FullName))
+                {
+                    return BadRequest(new { message = "Full name is required" });
+                }
+
+                var user = await _context.Users.FindAsync(userId);
+                if (user == null)
+                {
+                    return NotFound(new { message = "User not found" });
+                }
+
+                user.FullName = dto.FullName.Trim();
+                await _context.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    message = "Profile updated successfully",
+                    fullName = user.FullName,
+                    email = user.Email
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating profile: {ex.Message}");
+                return StatusCode(500, new { message = "Error updating profile" });
+            }
+        }
+
+        [HttpPut("change-password")]
+        [Authorize(Roles = "Student")]
+        public async Task<ActionResult> ChangePassword(ChangePasswordDto dto)
+        {
+            try
+            {
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst(JwtRegisteredClaimNames.Sub);
+                if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out var userId))
+                {
+                    return Unauthorized(new { message = "Invalid user token" });
+                }
+
+                if (string.IsNullOrWhiteSpace(dto?.CurrentPassword))
+                {
+                    return BadRequest(new { message = "Current password is required" });
+                }
+
+                if (string.IsNullOrWhiteSpace(dto?.NewPassword))
+                {
+                    return BadRequest(new { message = "New password is required" });
+                }
+
+                if (dto.NewPassword != dto.ConfirmPassword)
+                {
+                    return BadRequest(new { message = "New password and confirm password do not match" });
+                }
+
+                if (dto.NewPassword.Length < 8)
+                {
+                    return BadRequest(new { message = "New password must be at least 8 characters long" });
+                }
+
+                var user = await _context.Users.FindAsync(userId);
+                if (user == null)
+                {
+                    return NotFound(new { message = "User not found" });
+                }
+
+                // Verify current password
+                var passwordVerificationResult = _passwordHasher.VerifyHashedPassword(user: null, user.HashedPassword, dto.CurrentPassword);
+                
+                // Also check SHA256 fallback for backward compatibility
+                bool passwordValid = false;
+                if (passwordVerificationResult == PasswordVerificationResult.Success || 
+                    passwordVerificationResult == PasswordVerificationResult.SuccessRehashNeeded)
+                {
+                    passwordValid = true;
+                }
+                else
+                {
+                    // Fallback to SHA256 for backward compatibility
+                    using var sha256 = SHA256.Create();
+                    var hashed = Convert.ToBase64String(sha256.ComputeHash(Encoding.UTF8.GetBytes(dto.CurrentPassword)));
+                    if (user.HashedPassword == hashed)
+                    {
+                        passwordValid = true;
+                    }
+                }
+
+                if (!passwordValid)
+                {
+                    return Unauthorized(new { message = "Current password is incorrect" });
+                }
+
+                // Hash and save new password
+                user.HashedPassword = _passwordHasher.HashPassword(user: null, dto.NewPassword);
+                await _context.SaveChangesAsync();
+
+                return Ok(new { message = "Password changed successfully" });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error changing password: {ex.Message}");
+                return StatusCode(500, new { message = "Error changing password" });
             }
         }
     }
