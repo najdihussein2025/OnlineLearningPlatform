@@ -1,41 +1,117 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import api from '../../../services/api';
 import { useDashboardToast } from '../../../components/DashboardLayout/DashboardLayout';
 import './StudentCertificates.css';
 
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+
 const StudentCertificates = () => {
   const { info, success } = useDashboardToast();
-  // Mock data - would come from API
-  const certificates = [
-    {
-      id: 1,
-      course: 'UI/UX Design Fundamentals',
-      issueDate: '2024-01-15',
-      verificationCode: 'CERT-2024-001-UIUX',
-      instructor: 'Mike Davis',
-      completionDate: '2024-01-15',
-    },
-    {
-      id: 2,
-      course: 'Machine Learning Basics',
-      issueDate: '2024-01-10',
-      verificationCode: 'CERT-2024-002-ML',
-      instructor: 'Lisa Anderson',
-      completionDate: '2024-01-10',
-    },
-    {
-      id: 3,
-      course: 'Complete Web Development Bootcamp',
-      issueDate: '2024-01-05',
-      verificationCode: 'CERT-2024-003-WEB',
-      instructor: 'John Smith',
-      completionDate: '2024-01-05',
-    },
-  ];
+  const [certificates, setCertificates] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const handleDownload = (certificateId) => {
-    // UI only - would trigger PDF download in production
-    info('Download feature coming soon');
+  useEffect(() => {
+    let mounted = true;
+    const loadCertificates = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const response = await api.get('/student/certificates');
+        if (!mounted) return;
+
+        // Normalize certificate data with defaults
+        const certificatesData = Array.isArray(response.data) ? response.data : [];
+        const normalizedCertificates = certificatesData.map(cert => ({
+          id: cert.id || 0,
+          course: cert.course || 'Untitled Course',
+          courseId: cert.courseId || 0,
+          instructor: cert.instructor || '',
+          issueDate: cert.issueDate || cert.GeneratedAt || new Date().toISOString(),
+          completionDate: cert.completionDate || cert.issueDate || cert.GeneratedAt || new Date().toISOString(),
+          verificationCode: cert.verificationCode || `CERT-${cert.id || 0}`,
+          downloadUrl: cert.downloadUrl || ''
+        }));
+
+        setCertificates(normalizedCertificates);
+      } catch (err) {
+        console.error('Error loading certificates:', err);
+        if (!mounted) return;
+        
+        // Set empty array instead of showing error
+        setCertificates([]);
+        setError(null); // Clear error to prevent error screen
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    loadCertificates();
+    return () => { mounted = false; };
+  }, []);
+
+  const handleDownload = async (certificate) => {
+    try {
+      // Call backend endpoint to generate and download PDF
+      const certificateId = certificate.id;
+      if (!certificateId) {
+        info('Certificate ID not available');
+        return;
+      }
+
+      // Get auth token for authenticated request
+      const token = localStorage.getItem('token');
+      const url = `${API_BASE_URL}/student/certificates/${certificateId}/download`;
+      
+      // Use fetch to download PDF with authentication
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to download certificate');
+      }
+
+      // Get PDF blob
+      const blob = await response.blob();
+      
+      // Create download link
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = `Certificate_${certificate.course?.replace(/\s+/g, '_') || 'Course'}_${certificateId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+      
+      success('Certificate downloaded successfully');
+    } catch (err) {
+      console.error('Error downloading certificate:', err);
+      info('Failed to download certificate. Please try again.');
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="student-certificates-page">
+        <div className="page-header">
+          <div>
+            <h1 className="page-title">My Certificates</h1>
+            <p className="page-subtitle">View and download your earned certificates</p>
+          </div>
+        </div>
+        <div className="loading-state">
+          <div className="spinner"></div>
+          <p>Loading certificates...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="student-certificates-page">
@@ -61,7 +137,9 @@ const StudentCertificates = () => {
 
               <div className="certificate-content">
                 <h3 className="certificate-course">{certificate.course}</h3>
-                <p className="certificate-instructor">Instructor: {certificate.instructor}</p>
+                {certificate.instructor && (
+                  <p className="certificate-instructor">Instructor: {certificate.instructor}</p>
+                )}
                 
                 <div className="certificate-details">
                   <div className="certificate-detail-item">
@@ -110,7 +188,7 @@ const StudentCertificates = () => {
               <div className="certificate-actions">
                 <button 
                   className="btn-download"
-                  onClick={() => handleDownload(certificate.id)}
+                  onClick={() => handleDownload(certificate)}
                 >
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>

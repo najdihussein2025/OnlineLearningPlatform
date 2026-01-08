@@ -15,9 +15,9 @@ namespace ids.Data
             // Prepare seed accounts
             var seeds = new[]
             {
-                new { FullName = "Alex Turner", Email = "aturner@email.com", Password = "PassWord$111", Role = "student" },
-                new { FullName = "Jane Instructor", Email = "instructor@test.com", Password = "password123", Role = "instructor" },
-                new { FullName = "Site Admin", Email = "admin@test.com", Password = "password123", Role = "admin" }
+                new { FullName = "Alex Turner", Email = "aturner@email.com", Password = "PassWord$111", Role = "Student" },
+                new { FullName = "Jane Instructor", Email = "instructor@test.com", Password = "password123", Role = "Instructor" },
+                new { FullName = "Site Admin", Email = "admin@test.com", Password = "password123", Role = "Admin" }
             };
 
             foreach (var s in seeds)

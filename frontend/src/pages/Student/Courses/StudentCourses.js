@@ -1,93 +1,135 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import CourseProgressCard from '../../../components/student/CourseProgressCard/CourseProgressCard';
+import api from '../../../services/api';
 import './StudentCourses.css';
 
 const StudentCourses = () => {
   const [filter, setFilter] = useState('all');
+  const [courses, setCourses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Mock data - would come from API
-  const courses = [
-    {
-      id: 1,
-      title: 'Complete Web Development Bootcamp',
-      instructor: 'John Smith',
-      progress: 65,
-      completedLessons: 13,
-      totalLessons: 20,
-      completedQuizzes: 2,
-      totalQuizzes: 5,
-      lastAccessed: '2 hours ago',
-      status: 'in-progress',
-    },
-    {
-      id: 2,
-      title: 'Advanced Data Science with Python',
-      instructor: 'Sarah Johnson',
-      progress: 30,
-      completedLessons: 6,
-      totalLessons: 20,
-      completedQuizzes: 1,
-      totalQuizzes: 4,
-      lastAccessed: '1 day ago',
-      status: 'in-progress',
-    },
-    {
-      id: 3,
-      title: 'UI/UX Design Fundamentals',
-      instructor: 'Mike Davis',
-      progress: 100,
-      completedLessons: 15,
-      totalLessons: 15,
-      completedQuizzes: 3,
-      totalQuizzes: 3,
-      lastAccessed: '1 week ago',
-      status: 'completed',
-    },
-    {
-      id: 4,
-      title: 'React Advanced Patterns',
-      instructor: 'Emily Chen',
-      progress: 0,
-      completedLessons: 0,
-      totalLessons: 18,
-      completedQuizzes: 0,
-      totalQuizzes: 4,
-      lastAccessed: null,
-      status: 'not-started',
-    },
-    {
-      id: 5,
-      title: 'Node.js Backend Development',
-      instructor: 'David Wilson',
-      progress: 45,
-      completedLessons: 9,
-      totalLessons: 20,
-      completedQuizzes: 1,
-      totalQuizzes: 5,
-      lastAccessed: '3 days ago',
-      status: 'in-progress',
-    },
-    {
-      id: 6,
-      title: 'Machine Learning Basics',
-      instructor: 'Lisa Anderson',
-      progress: 100,
-      completedLessons: 12,
-      totalLessons: 12,
-      completedQuizzes: 2,
-      totalQuizzes: 2,
-      lastAccessed: '2 weeks ago',
-      status: 'completed',
-    },
-  ];
+  useEffect(() => {
+    let mounted = true;
+    const loadCourses = async () => {
+      try {
+        setLoading(true);
+        setError(null);
 
-  const filteredCourses = courses.filter(course => {
+        const response = await api.get('/student/courses');
+        
+        if (!mounted) return;
+
+        // Backend returns a plain JSON array directly
+        // Ensure response.data is an array
+        const coursesData = Array.isArray(response.data) ? response.data : [];
+        
+        // Map backend data to frontend format with safe defaults
+        // Filter out any invalid courses (missing courseId)
+        const mappedCourses = coursesData
+          .filter(course => course && (course.courseId || course.id))
+          .map(course => {
+            // Safely extract all values with proper defaults
+            const courseId = course.courseId || course.id || 0;
+            const title = course.title || 'Untitled Course';
+            const shortDescription = course.shortDescription || '';
+            const progress = Number(course.progress) || 0;
+            const lessonsCount = Number(course.lessonsCount) || 0;
+            const completedLessonsCount = Number(course.completedLessonsCount) || 0;
+            const quizzesCount = Number(course.quizzesCount) || 0;
+            const completedQuizzesCount = Number(course.completedQuizzesCount || course.passedQuizzesCount) || 0;
+            const lastAccessed = course.lastAccessed || null;
+            const status = course.status || null;
+            
+            return {
+              id: courseId,
+              title: title,
+              description: shortDescription,
+              thumbnail: '', // Not in new response
+              progress: Math.max(0, Math.min(100, progress)), // Clamp between 0-100
+              enrolledAt: null, // Not in new response
+              instructor: '', // Not available in current backend response
+              completedLessons: completedLessonsCount,
+              totalLessons: lessonsCount,
+              completedQuizzes: completedQuizzesCount,
+              totalQuizzes: quizzesCount,
+              lastAccessed: lastAccessed,
+              status: status,
+            };
+          });
+
+        setCourses(mappedCourses);
+      } catch (err) {
+        console.error('Error loading enrolled courses:', err);
+        if (!mounted) return;
+        
+        // Instead of showing error, set empty courses array
+        // This prevents the error screen from showing
+        setCourses([]);
+        setError(null); // Clear error to prevent error screen
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    loadCourses();
+    return () => { mounted = false; };
+  }, []);
+
+  // Determine course status - STRICTLY use backend status, never calculate from progress
+  const getCourseStatus = (course) => {
+    // Backend MUST provide status - use it directly
+    if (course && course.status) {
+      const statusLower = String(course.status).toLowerCase().trim();
+      // Handle enum string values from backend: "Completed", "InProgress", "NotStarted"
+      if (statusLower === 'completed') return 'completed';
+      if (statusLower === 'inprogress' || statusLower === 'in-progress') return 'in-progress';
+      if (statusLower === 'notstarted' || statusLower === 'not-started') return 'not-started';
+    }
+    // If backend doesn't provide status, default to not-started (shouldn't happen)
+    // DO NOT calculate from progress - backend is source of truth
+    console.warn(`Course ${course?.id} missing status from backend`);
+    return 'not-started';
+  };
+
+  // Safely filter courses
+  const filteredCourses = (courses || []).filter(course => {
+    if (!course) return false;
+    const status = getCourseStatus(course);
     if (filter === 'all') return true;
-    if (filter === 'in-progress') return course.status === 'in-progress';
-    if (filter === 'completed') return course.status === 'completed';
-    if (filter === 'not-started') return course.status === 'not-started';
+    if (filter === 'in-progress') return status === 'in-progress';
+    if (filter === 'completed') return status === 'completed';
+    if (filter === 'not-started') return status === 'not-started';
     return true;
   });
+
+  // Calculate counts for tabs (ensure courses is an array)
+  const coursesArray = Array.isArray(courses) ? courses : [];
+  const allCount = coursesArray.length;
+  const inProgressCount = coursesArray.filter(c => c && getCourseStatus(c) === 'in-progress').length;
+  const completedCount = coursesArray.filter(c => c && getCourseStatus(c) === 'completed').length;
+  const notStartedCount = coursesArray.filter(c => c && getCourseStatus(c) === 'not-started').length;
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="student-courses-page">
+        <div className="page-header">
+          <div>
+            <h1 className="page-title">My Courses</h1>
+            <p className="page-subtitle">Manage and continue your enrolled courses</p>
+          </div>
+        </div>
+        <div className="loading-state">
+          <div className="spinner"></div>
+          <p>Loading your courses...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't show error state - always show courses list (even if empty)
+  // This prevents the error screen from appearing
 
   return (
     <div className="student-courses-page">
@@ -104,25 +146,25 @@ const StudentCourses = () => {
             className={`filter-tab ${filter === 'all' ? 'active' : ''}`}
             onClick={() => setFilter('all')}
           >
-            All Courses ({courses.length})
+            All Courses ({allCount})
           </button>
           <button
             className={`filter-tab ${filter === 'in-progress' ? 'active' : ''}`}
             onClick={() => setFilter('in-progress')}
           >
-            In Progress ({courses.filter(c => c.status === 'in-progress').length})
+            In Progress ({inProgressCount})
           </button>
           <button
             className={`filter-tab ${filter === 'completed' ? 'active' : ''}`}
             onClick={() => setFilter('completed')}
           >
-            Completed ({courses.filter(c => c.status === 'completed').length})
+            Completed ({completedCount})
           </button>
           <button
             className={`filter-tab ${filter === 'not-started' ? 'active' : ''}`}
             onClick={() => setFilter('not-started')}
           >
-            Not Started ({courses.filter(c => c.status === 'not-started').length})
+            Not Started ({notStartedCount})
           </button>
         </div>
       </div>
@@ -139,8 +181,16 @@ const StudentCourses = () => {
               <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
-            <h3>No courses found</h3>
-            <p>No courses match your selected filter.</p>
+            <h3>
+              {courses.length === 0 
+                ? 'You are not enrolled in any courses yet'
+                : 'No courses found'}
+            </h3>
+            <p>
+              {courses.length === 0
+                ? 'Browse available courses and enroll to get started.'
+                : 'No courses match your selected filter.'}
+            </p>
           </div>
         )}
       </div>

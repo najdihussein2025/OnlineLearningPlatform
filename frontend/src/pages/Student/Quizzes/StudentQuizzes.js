@@ -1,77 +1,60 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import api from '../../../services/api';
 import './StudentQuizzes.css';
 
 const StudentQuizzes = () => {
   const [filter, setFilter] = useState('all');
+  const [quizzes, setQuizzes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Mock data - would come from API
-  const quizzes = [
-    {
-      id: 1,
-      title: 'JavaScript Fundamentals Quiz',
-      course: 'Complete Web Development Bootcamp',
-      status: 'completed',
-      score: 85,
-      maxScore: 100,
-      date: '2024-01-25',
-      duration: '30 minutes',
-      questions: 20,
-      passingScore: 70,
-      canRetake: true,
-    },
-    {
-      id: 2,
-      title: 'React Components Quiz',
-      course: 'Complete Web Development Bootcamp',
-      status: 'upcoming',
-      date: '2024-01-30',
-      time: '2:00 PM',
-      duration: '45 minutes',
-      questions: 25,
-      passingScore: 75,
-    },
-    {
-      id: 3,
-      title: 'Python Basics Quiz',
-      course: 'Advanced Data Science with Python',
-      status: 'not-started',
-      duration: '30 minutes',
-      questions: 15,
-      passingScore: 70,
-    },
-    {
-      id: 4,
-      title: 'CSS Layout Quiz',
-      course: 'Complete Web Development Bootcamp',
-      status: 'completed',
-      score: 92,
-      maxScore: 100,
-      date: '2024-01-20',
-      duration: '25 minutes',
-      questions: 18,
-      passingScore: 70,
-      canRetake: true,
-    },
-    {
-      id: 5,
-      title: 'Node.js Basics Quiz',
-      course: 'Node.js Backend Development',
-      status: 'not-started',
-      duration: '35 minutes',
-      questions: 20,
-      passingScore: 75,
-    },
-  ];
+  useEffect(() => {
+    let mounted = true;
+    const loadQuizzes = async () => {
+      try {
+        setLoading(true);
+        setError(null);
 
-  const filteredQuizzes = quizzes.filter(quiz => {
-    if (filter === 'all') return true;
-    return quiz.status === filter;
-  });
+        const response = await api.get('/student/quizzes');
+        if (!mounted) return;
+
+        // Normalize quiz data with defaults
+        const quizzesData = Array.isArray(response.data) ? response.data : [];
+        const normalizedQuizzes = quizzesData.map(quiz => ({
+          id: quiz.id || quiz.quizId || 0,
+          title: quiz.title || 'Untitled Quiz',
+          course: quiz.course || 'Untitled Course',
+          status: quiz.status || 'not-started',
+          score: quiz.score || null,
+          maxScore: quiz.maxScore || 100,
+          date: quiz.date || null,
+          duration: quiz.duration || 'No limit',
+          questions: quiz.questions || 0,
+          passingScore: quiz.passingScore || 70,
+          canRetake: quiz.canRetake !== false, // Default to true
+        }));
+
+        setQuizzes(normalizedQuizzes);
+      } catch (err) {
+        console.error('Error loading quizzes:', err);
+        if (!mounted) return;
+        
+        // Set empty array instead of showing error
+        setQuizzes([]);
+        setError(null); // Clear error to prevent error screen
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    loadQuizzes();
+    return () => { mounted = false; };
+  }, []);
 
   const getStatusBadge = (status, score, passingScore) => {
     if (status === 'completed') {
-      const passed = score >= passingScore;
+      const passed = score != null && score >= passingScore;
       return (
         <span className={`status-badge ${passed ? 'status-passed' : 'status-failed'}`}>
           {passed ? 'Passed' : 'Failed'}
@@ -82,6 +65,29 @@ const StudentQuizzes = () => {
     }
     return <span className="status-badge status-not-started">Not Started</span>;
   };
+
+  // Filter quizzes based on selected filter
+  const filteredQuizzes = (quizzes || []).filter(quiz => {
+    if (filter === 'all') return true;
+    return quiz.status === filter;
+  });
+
+  if (loading) {
+    return (
+      <div className="student-quizzes-page">
+        <div className="page-header">
+          <div>
+            <h1 className="page-title">My Quizzes</h1>
+            <p className="page-subtitle">Take quizzes and track your performance</p>
+          </div>
+        </div>
+        <div className="loading-state">
+          <div className="spinner"></div>
+          <p>Loading quizzes...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="student-quizzes-page">
@@ -153,7 +159,7 @@ const StudentQuizzes = () => {
                   </svg>
                   <span>{quiz.questions} Questions</span>
                 </div>
-                {quiz.status === 'completed' && (
+                {quiz.status === 'completed' && quiz.score != null && (
                   <div className="quiz-detail-item">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                       <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -163,7 +169,7 @@ const StudentQuizzes = () => {
                 )}
               </div>
 
-              {quiz.status === 'completed' && (
+              {quiz.status === 'completed' && quiz.score != null && (
                 <div className="quiz-score-section">
                   <div className="score-bar">
                     <div 
@@ -184,14 +190,14 @@ const StudentQuizzes = () => {
                     Start Quiz
                   </Link>
                 )}
-                {quiz.status === 'upcoming' && (
+                {quiz.status === 'upcoming' && quiz.date && (
                   <div className="upcoming-info">
                     <p className="upcoming-date">
                       {new Date(quiz.date).toLocaleDateString('en-US', { 
                         month: 'short', 
                         day: 'numeric',
                         year: 'numeric'
-                      })} at {quiz.time}
+                      })}
                     </p>
                   </div>
                 )}

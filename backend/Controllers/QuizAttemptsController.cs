@@ -21,17 +21,33 @@ namespace ids.Controllers
         public async Task<ActionResult<IEnumerable<QuizAttemptResponseDto>>> GetAttempts()
         {
             var attempts = await _context.QuizAttempts.ToListAsync();
-            var dtos = attempts.Select(a => new QuizAttemptResponseDto { Id = a.Id, QuizId = a.QuizId, UserId = a.UserId, Score = a.Score, AttemptDate = a.AttemptDate }).ToList();
+            var dtos = attempts.Select(a => new QuizAttemptResponseDto 
+            { 
+                Id = a.Id, 
+                QuizId = a.QuizId, 
+                UserId = a.UserId, 
+                Score = a.Score, 
+                Passed = a.Passed,
+                AttemptDate = a.AttemptDate 
+            }).ToList();
             return Ok(dtos);
         }
 
         [HttpPost]
         public async Task<ActionResult<QuizAttemptResponseDto>> CreateAttempt(CreateQuizAttemptDto dto)
         {
-            var a = new QuizAttempt { QuizId = dto.QuizId, UserId = dto.UserId, Score = dto.Score };
+            var a = new QuizAttempt { QuizId = dto.QuizId, UserId = dto.UserId, Score = dto.Score, Passed = false };
             _context.QuizAttempts.Add(a);
             await _context.SaveChangesAsync();
-            var response = new QuizAttemptResponseDto { Id = a.Id, QuizId = a.QuizId, UserId = a.UserId, Score = a.Score, AttemptDate = a.AttemptDate };
+            var response = new QuizAttemptResponseDto 
+            { 
+                Id = a.Id, 
+                QuizId = a.QuizId, 
+                UserId = a.UserId, 
+                Score = a.Score, 
+                Passed = a.Passed,
+                AttemptDate = a.AttemptDate 
+            };
             return CreatedAtAction(nameof(GetAttempts), new { id = a.Id }, response);
         }
     }

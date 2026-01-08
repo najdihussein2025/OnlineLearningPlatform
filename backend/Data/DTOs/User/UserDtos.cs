@@ -22,4 +22,16 @@ namespace ids.Data.DTOs.User
         public string Role { get; set; }
         public DateTime CreatedAt { get; set; }
     }
+
+    public class UpdateProfileDto
+    {
+        public string FullName { get; set; }
+    }
+
+    public class ChangePasswordDto
+    {
+        public string CurrentPassword { get; set; }
+        public string NewPassword { get; set; }
+        public string ConfirmPassword { get; set; }
+    }
 }

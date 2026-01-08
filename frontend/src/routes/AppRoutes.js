@@ -13,8 +13,10 @@ import Services from '../pages/Services/Services';
 import About from '../pages/About/About';
 import StudentDashboard from '../pages/Student/Dashboard/StudentDashboard';
 import StudentCourses from '../pages/Student/Courses/StudentCourses';
+import StudentCourseDetails from '../pages/Student/Courses/StudentCourseDetails';
 import StudentLessons from '../pages/Student/Lessons/StudentLessons';
 import StudentQuizzes from '../pages/Student/Quizzes/StudentQuizzes';
+import TakeQuiz from '../pages/Student/Quizzes/TakeQuiz';
 import StudentProgress from '../pages/Student/Progress/StudentProgress';
 import StudentCertificates from '../pages/Student/Certificates/StudentCertificates';
 import StudentSettings from '../pages/Student/Settings/StudentSettings';
@@ -72,8 +74,10 @@ const AppRoutes = () => {
       >
         <Route path="/student/dashboard" element={<StudentDashboard />} />
         <Route path="/student/courses" element={<StudentCourses />} />
+        <Route path="/student/courses/:courseId" element={<StudentCourseDetails />} />
         <Route path="/student/lessons" element={<StudentLessons />} />
         <Route path="/student/quizzes" element={<StudentQuizzes />} />
+        <Route path="/student/quizzes/:quizId" element={<TakeQuiz />} />
         <Route path="/student/progress" element={<StudentProgress />} />
         <Route path="/student/certificates" element={<StudentCertificates />} />
         <Route path="/student/settings" element={<StudentSettings />} />

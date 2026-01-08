@@ -2,11 +2,19 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using ids.Data;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        // Configure JSON serialization to use camelCase for frontend compatibility
+        options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+        options.JsonSerializerOptions.WriteIndented = false;
+    });
 
 
 
@@ -40,11 +48,16 @@ builder.Services.AddAuthentication(options =>
         ValidIssuer = jwt["Issuer"],
         ValidAudience = jwt["Audience"],
         IssuerSigningKey = new SymmetricSecurityKey(key),
-        ClockSkew = TimeSpan.Zero
+        ClockSkew = TimeSpan.Zero,
+        // Explicitly map role claims to ensure authorization works correctly
+        RoleClaimType = ClaimTypes.Role
     };
 });
 
 builder.Services.AddAuthorization();
+
+// Register PDF service for certificate generation
+builder.Services.AddScoped<CertificatePdfService>();
 
 
 builder.Services.AddCors(options =>

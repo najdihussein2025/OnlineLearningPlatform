@@ -1,149 +1,55 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import CourseCard from '../../components/CourseCard/CourseCard';
+import { courseService } from '../../services/courseService';
+import { enrollmentService } from '../../services/enrollmentService';
+import { useAuth } from '../../context/AuthContext';
+import { useToastContext } from '../../context/ToastContext';
 import './Courses.css';
-
-// Dummy course data
-const dummyCourses = [
-  {
-    id: 1,
-    title: 'Complete Web Development Bootcamp',
-    description: 'Master HTML, CSS, JavaScript, React, Node.js, and more. Build real-world projects and land your dream job.',
-    category: 'Web Development',
-    difficulty: 'Beginner',
-    duration: '12 weeks',
-    instructor: 'Sarah Johnson',
-    thumbnail: null,
-  },
-  {
-    id: 2,
-    title: 'Advanced Data Science with Python',
-    description: 'Learn machine learning, data analysis, and visualization using Python, Pandas, and Scikit-learn.',
-    category: 'Data Science',
-    difficulty: 'Advanced',
-    duration: '16 weeks',
-    instructor: 'Dr. Michael Chen',
-    thumbnail: null,
-  },
-  {
-    id: 3,
-    title: 'UI/UX Design Fundamentals',
-    description: 'Master the principles of user interface and user experience design. Create beautiful, functional designs.',
-    category: 'Design',
-    difficulty: 'Beginner',
-    duration: '8 weeks',
-    instructor: 'Emily Rodriguez',
-    thumbnail: null,
-  },
-  {
-    id: 4,
-    title: 'Business Strategy & Leadership',
-    description: 'Develop strategic thinking and leadership skills. Learn to make data-driven business decisions.',
-    category: 'Business',
-    difficulty: 'Intermediate',
-    duration: '10 weeks',
-    instructor: 'James Anderson',
-    thumbnail: null,
-  },
-  {
-    id: 5,
-    title: 'Full-Stack JavaScript Development',
-    description: 'Build modern web applications using React, Node.js, Express, and MongoDB. Full-stack mastery.',
-    category: 'Programming',
-    difficulty: 'Intermediate',
-    duration: '14 weeks',
-    instructor: 'Alex Thompson',
-    thumbnail: null,
-  },
-  {
-    id: 6,
-    title: 'Digital Marketing Mastery',
-    description: 'Learn SEO, social media marketing, content strategy, and analytics. Grow your online presence.',
-    category: 'Marketing',
-    difficulty: 'Beginner',
-    duration: '6 weeks',
-    instructor: 'Lisa Martinez',
-    thumbnail: null,
-  },
-  {
-    id: 7,
-    title: 'React Advanced Patterns',
-    description: 'Deep dive into React hooks, context, performance optimization, and advanced state management.',
-    category: 'Web Development',
-    difficulty: 'Advanced',
-    duration: '8 weeks',
-    instructor: 'David Kim',
-    thumbnail: null,
-  },
-  {
-    id: 8,
-    title: 'Machine Learning Fundamentals',
-    description: 'Introduction to ML algorithms, neural networks, and deep learning. Hands-on projects included.',
-    category: 'Data Science',
-    difficulty: 'Intermediate',
-    duration: '12 weeks',
-    instructor: 'Dr. Michael Chen',
-    thumbnail: null,
-  },
-  {
-    id: 9,
-    title: 'Mobile App Development with React Native',
-    description: 'Build cross-platform mobile apps using React Native. iOS and Android development in one course.',
-    category: 'Programming',
-    difficulty: 'Intermediate',
-    duration: '10 weeks',
-    instructor: 'Alex Thompson',
-    thumbnail: null,
-  },
-  {
-    id: 10,
-    title: 'Advanced Business Analytics',
-    description: 'Master data analysis, visualization, and business intelligence tools. Make informed decisions.',
-    category: 'Business',
-    difficulty: 'Advanced',
-    duration: '10 weeks',
-    instructor: 'James Anderson',
-    thumbnail: null,
-  },
-  {
-    id: 11,
-    title: 'Graphic Design Essentials',
-    description: 'Learn typography, color theory, layout design, and Adobe Creative Suite. Create stunning visuals.',
-    category: 'Design',
-    difficulty: 'Beginner',
-    duration: '8 weeks',
-    instructor: 'Emily Rodriguez',
-    thumbnail: null,
-  },
-  {
-    id: 12,
-    title: 'Content Marketing Strategy',
-    description: 'Create engaging content, build your brand, and drive traffic. Content marketing that converts.',
-    category: 'Marketing',
-    difficulty: 'Intermediate',
-    duration: '6 weeks',
-    instructor: 'Lisa Martinez',
-    thumbnail: null,
-  },
-];
 
 const Courses = () => {
   const [courses, setCourses] = useState([]);
+  const [enrolledCourseIds, setEnrolledCourseIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
+  const [enrollingCourseId, setEnrollingCourseId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedDifficulty, setSelectedDifficulty] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
   const [isFilterSticky, setIsFilterSticky] = useState(false);
+  const { isAuthenticated, role } = useAuth();
+  const { success, error } = useToastContext();
 
-  // Simulate loading
+  const isStudent = isAuthenticated && role?.toLowerCase() === 'student';
+
+  // Fetch courses and enrollment status
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setCourses(dummyCourses);
-      setLoading(false);
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, []);
+    let mounted = true;
+    const loadData = async () => {
+      try {
+        const [coursesData, enrollmentsData] = await Promise.all([
+          courseService.getAllCourses(),
+          isStudent ? enrollmentService.getMyEnrollments() : Promise.resolve([]),
+        ]);
+
+        if (!mounted) return;
+
+        setCourses(coursesData);
+        if (isStudent && enrollmentsData) {
+          const enrolledIds = new Set(enrollmentsData.map(e => e.courseId));
+          setEnrolledCourseIds(enrolledIds);
+        }
+      } catch (err) {
+        console.error('Error loading courses:', err);
+        error('Failed to load courses');
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    loadData();
+    return () => { mounted = false; };
+  }, [isStudent, error]);
 
   // Handle sticky filter bar
   useEffect(() => {
@@ -156,11 +62,32 @@ const Courses = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Handle enrollment
+  const handleEnroll = async (courseId) => {
+    if (!isStudent) return;
+
+    setEnrollingCourseId(courseId);
+    try {
+      const result = await enrollmentService.enroll(courseId);
+      if (result.success) {
+        success(result.message || 'Successfully enrolled in course!');
+        // Update enrollment status
+        setEnrolledCourseIds(prev => new Set([...prev, courseId]));
+      } else {
+        error(result.error || 'Failed to enroll in course');
+      }
+    } catch (err) {
+      error('An error occurred while enrolling');
+    } finally {
+      setEnrollingCourseId(null);
+    }
+  };
+
   // Get unique categories
   const categories = useMemo(() => {
-    const uniqueCategories = [...new Set(dummyCourses.map(course => course.category))];
+    const uniqueCategories = [...new Set(courses.map(course => course.category || course.Category))];
     return uniqueCategories.sort();
-  }, []);
+  }, [courses]);
 
   // Filter and sort courses
   const filteredCourses = useMemo(() => {
@@ -168,25 +95,35 @@ const Courses = () => {
 
     // Search filter
     if (searchQuery) {
-      filtered = filtered.filter(course =>
-        course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        course.description.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+      filtered = filtered.filter(course => {
+        const title = (course.title || course.Title || '').toLowerCase();
+        const description = (course.shortDescription || course.ShortDescription || course.description || course.Description || '').toLowerCase();
+        const query = searchQuery.toLowerCase();
+        return title.includes(query) || description.includes(query);
+      });
     }
 
     // Category filter
     if (selectedCategory !== 'all') {
-      filtered = filtered.filter(course => course.category === selectedCategory);
+      filtered = filtered.filter(course => 
+        (course.category || course.Category) === selectedCategory
+      );
     }
 
     // Difficulty filter
     if (selectedDifficulty !== 'all') {
-      filtered = filtered.filter(course => course.difficulty.toLowerCase() === selectedDifficulty.toLowerCase());
+      filtered = filtered.filter(course => 
+        (course.difficulty || course.Difficulty)?.toLowerCase() === selectedDifficulty.toLowerCase()
+      );
     }
 
     // Sort
     if (sortBy === 'newest') {
-      filtered.sort((a, b) => b.id - a.id);
+      filtered.sort((a, b) => {
+        const aId = a.id || a.Id || 0;
+        const bId = b.id || b.Id || 0;
+        return bId - aId;
+      });
     } else if (sortBy === 'popular') {
       // Simulate popularity (random for demo)
       filtered.sort(() => Math.random() - 0.5);
@@ -308,9 +245,27 @@ const Courses = () => {
                 </p>
               </div>
               <div className="courses-grid">
-                {filteredCourses.map(course => (
-                  <CourseCard key={course.id} course={course} />
-                ))}
+                {filteredCourses.map(course => {
+                  const courseId = course.id || course.Id;
+                  const isEnrolled = enrolledCourseIds.has(courseId);
+                  return (
+                    <CourseCard
+                      key={courseId}
+                      course={{
+                        id: courseId,
+                        title: course.title || course.Title,
+                        description: course.shortDescription || course.ShortDescription || course.description || course.Description,
+                        category: course.category || course.Category,
+                        difficulty: course.difficulty || course.Difficulty,
+                        thumbnail: course.thumbnail || course.Thumbnail,
+                      }}
+                      isEnrolled={isEnrolled}
+                      onEnroll={handleEnroll}
+                      isEnrolling={enrollingCourseId === courseId}
+                      showEnrollButton={isStudent}
+                    />
+                  );
+                })}
               </div>
             </>
           ) : (
