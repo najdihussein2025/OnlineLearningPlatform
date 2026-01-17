@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import DataTable from '../../../components/admin/DataTable/DataTable';
 import SearchBar from '../../../components/admin/SearchBar/SearchBar';
 import { useDashboardToast } from '../../../components/DashboardLayout/DashboardLayout';
 import ConfirmationDialog from '../../../components/ConfirmationDialog/ConfirmationDialog';
+import api from '../../../services/api';
 import './AdminUsers.css';
 
 const AdminUsers = () => {
@@ -10,17 +11,44 @@ const AdminUsers = () => {
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, action: null, userId: null });
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
   const { success, error } = useDashboardToast();
 
-  // Mock users data
-  const users = [
-    { id: 1, name: 'John Doe', email: 'john@example.com', role: 'student', status: 'active', joined: '2024-01-15' },
-    { id: 2, name: 'Jane Smith', email: 'jane@example.com', role: 'instructor', status: 'pending', joined: '2024-01-20' },
-    { id: 3, name: 'Mike Johnson', email: 'mike@example.com', role: 'student', status: 'active', joined: '2024-01-18' },
-    { id: 4, name: 'Sarah Williams', email: 'sarah@example.com', role: 'instructor', status: 'active', joined: '2024-01-10' },
-    { id: 5, name: 'David Brown', email: 'david@example.com', role: 'student', status: 'active', joined: '2024-01-22' },
-    { id: 6, name: 'Emily Davis', email: 'emily@example.com', role: 'instructor', status: 'pending', joined: '2024-01-25' },
-  ];
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get('/users');
+      const usersData = response.data || [];
+      
+      // Map API data to table format
+      const formattedUsers = usersData.map(user => ({
+        id: user.id,
+        name: user.fullName || user.name || 'Unknown',
+        email: user.email || 'No email',
+        role: user.role || 'student',
+        status: user.status || 'active',
+        joined: user.createdAt 
+          ? new Date(user.createdAt).toLocaleDateString('en-US', { 
+              month: 'short', 
+              day: 'numeric', 
+              year: 'numeric' 
+            })
+          : 'Not set'
+      }));
+      
+      setUsers(formattedUsers);
+    } catch (err) {
+      console.error('Error fetching users:', err);
+      error('Failed to load users');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredUsers = useMemo(() => {
     return users.filter(user => {
@@ -33,24 +61,39 @@ const AdminUsers = () => {
     });
   }, [searchQuery, roleFilter, statusFilter]);
 
-  const handleApprove = (userId) => {
-    // UI only - would call API in production
-    success(`User ${userId} approved successfully`);
+  const handleApprove = async (userId) => {
+    try {
+      await api.put(`/users/${userId}`, { status: 'active' });
+      setUsers(users.map(u => u.id === userId ? { ...u, status: 'active' } : u));
+      success(`User ${userId} approved successfully`);
+    } catch (err) {
+      console.error('Error approving user:', err);
+      error('Failed to approve user');
+    }
   };
 
   const handleDisable = (userId) => {
+    const user = users.find(u => u.id === userId);
     setConfirmDialog({ 
       isOpen: true, 
       action: 'disable', 
       userId,
-      message: 'Are you sure you want to disable this user?'
+      message: `Are you sure you want to ${user?.status === 'active' ? 'disable' : 'enable'} this user?`
     });
   };
 
-  const confirmAction = () => {
+  const confirmAction = async () => {
     if (confirmDialog.action === 'disable') {
-      // UI only - would call API in production
-      success(`User ${confirmDialog.userId} disabled successfully`);
+      try {
+        const user = users.find(u => u.id === confirmDialog.userId);
+        const newStatus = user?.status === 'active' ? 'inactive' : 'active';
+        await api.put(`/users/${confirmDialog.userId}`, { status: newStatus });
+        setUsers(users.map(u => u.id === confirmDialog.userId ? { ...u, status: newStatus } : u));
+        success(`User status updated to ${newStatus}`);
+      } catch (err) {
+        console.error('Error updating user status:', err);
+        error('Failed to update user status');
+      }
     }
     setConfirmDialog({ isOpen: false, action: null, userId: null });
   };
@@ -144,6 +187,7 @@ const AdminUsers = () => {
               <option value="all">All Status</option>
               <option value="active">Active</option>
               <option value="pending">Pending</option>
+              <option value="inactive">Inactive</option>
             </select>
           </div>
           <div className="filter-results">
@@ -151,12 +195,18 @@ const AdminUsers = () => {
           </div>
         </div>
 
-        <DataTable
-          columns={columns}
-          data={filteredUsers}
-          actions={actions}
-          emptyMessage="No users found"
-        />
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
+            Loading users...
+          </div>
+        ) : (
+          <DataTable
+            columns={columns}
+            data={filteredUsers}
+            actions={actions}
+            emptyMessage="No users found"
+          />
+        )}
       </div>
       <ConfirmationDialog
         isOpen={confirmDialog.isOpen}

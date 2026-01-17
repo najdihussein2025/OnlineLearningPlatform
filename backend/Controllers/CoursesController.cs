@@ -90,7 +90,7 @@ namespace ids.Controllers
             return Ok(dto);
         }
 
-        [Authorize(Roles = "instructor,admin")]
+        [Authorize(Roles = "Instructor,Admin")]
         [HttpPost]
         public async Task<ActionResult<CourseResponseDto>> CreateCourse(CreateCourseDto dto)
         {

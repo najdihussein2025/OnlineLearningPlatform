@@ -11,7 +11,6 @@ namespace ids.Data.DTOs.Course
         public string Category { get; set; }
         public string Difficulty { get; set; }
         public string Thumbnail { get; set; }
-        public int CreatedBy { get; set; }
         public bool IsPublished { get; set; }
     }
 

@@ -84,7 +84,7 @@ namespace ids.Controllers
             return Ok(dto);
         }
 
-        [Authorize(Roles = "instructor,admin")]
+        [Authorize(Roles = "Instructor,Admin")]
         [HttpPost]
         public async Task<ActionResult<LessonResponseDto>> CreateLesson(CreateLessonDto dto)
         {
@@ -124,7 +124,7 @@ namespace ids.Controllers
             return CreatedAtAction(nameof(GetLesson), new { id = lesson.Id }, response);
         }
 
-        [Authorize(Roles = "instructor,admin")]
+        [Authorize(Roles = "Instructor,Admin")]
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateLesson(int id, UpdateLessonDto dto)
         {
@@ -147,7 +147,7 @@ namespace ids.Controllers
             return NoContent();
         }
 
-        [Authorize(Roles = "instructor,admin")]
+        [Authorize(Roles = "Instructor,Admin")]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteLesson(int id)
         {

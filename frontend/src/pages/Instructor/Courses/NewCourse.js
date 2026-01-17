@@ -36,10 +36,11 @@ const NewCourse = () => {
         thumbnail: form.thumbnail,
         isPublished: form.isPublished,
       };
-      await api.post('/courses', payload);
+      const response = await api.post('/courses', payload);
       navigate('/instructor/courses');
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to create course');
+      console.error('Course creation error:', err);
+      setError(err.response?.data?.message || err.message || 'Failed to create course');
     } finally {
       setLoading(false);
     }

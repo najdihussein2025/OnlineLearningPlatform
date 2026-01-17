@@ -1,15 +1,144 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import StatCard from '../../../components/admin/StatCard/StatCard';
 import DataTable from '../../../components/admin/DataTable/DataTable';
+import api from '../../../services/api';
 import './AdminDashboard.css';
 
 const AdminDashboard = () => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    totalCourses: 0,
+    totalLessons: 0,
+    totalQuizzes: 0,
+  });
+  const [enrollmentData, setEnrollmentData] = useState([]);
+  const [quizPerformance, setQuizPerformance] = useState([]);
+  const [recentActivityData, setRecentActivityData] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const stats = [
+  const getTimeAgo = (date) => {
+    const seconds = Math.floor((new Date() - date) / 1000);
+    const intervals = {
+      year: 31536000,
+      month: 2592000,
+      week: 604800,
+      day: 86400,
+      hour: 3600,
+      minute: 60
+    };
+    
+    for (const [name, secondsInInterval] of Object.entries(intervals)) {
+      const interval = Math.floor(seconds / secondsInInterval);
+      if (interval >= 1) {
+        return interval === 1 ? `1 ${name} ago` : `${interval} ${name}s ago`;
+      }
+    }
+    return 'just now';
+  };
+
+  useEffect(() => {
+    const fetchAnalyticsData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch all required data in parallel
+        const [
+          usersRes,
+          coursesRes,
+          lessonsRes,
+          quizzesRes,
+          enrollmentsRes,
+          attemptsRes
+        ] = await Promise.all([
+          api.get('/users').catch(() => ({ data: [] })),
+          api.get('/courses').catch(() => ({ data: [] })),
+          api.get('/lessons').catch(() => ({ data: [] })),
+          api.get('/quizzes').catch(() => ({ data: [] })),
+          api.get('/enrollments').catch(() => ({ data: [] })),
+          api.get('/quizattempts').catch(() => ({ data: [] }))
+        ]);
+
+        const users = usersRes.data || [];
+        const courses = coursesRes.data || [];
+        const lessons = lessonsRes.data || [];
+        const quizzes = quizzesRes.data || [];
+        const enrollments = enrollmentsRes.data || [];
+        const attempts = attemptsRes.data || [];
+
+        // Update stats
+        setStats({
+          totalUsers: users.length,
+          totalCourses: courses.length,
+          totalLessons: lessons.length,
+          totalQuizzes: quizzes.length,
+        });
+
+        // Calculate enrollment growth for last 7 days
+        const last7Days = Array.from({ length: 7 }, (_, i) => {
+          const date = new Date();
+          date.setDate(date.getDate() - (6 - i));
+          return date.toISOString().split('T')[0];
+        });
+
+        const enrollmentByDay = last7Days.map(date => {
+          const count = enrollments.filter(e => {
+            const enrollDate = new Date(e.enrolledAt).toISOString().split('T')[0];
+            return enrollDate === date;
+          }).length;
+          return {
+            date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            enrollments: count,
+            fullDate: date
+          };
+        });
+
+        setEnrollmentData(enrollmentByDay);
+
+        // Calculate quiz performance by course
+        const coursePerformance = courses.map(course => {
+          const courseQuizzes = quizzes.filter(q => q.courseId === course.id);
+          const courseAttempts = attempts.filter(a => 
+            courseQuizzes.some(q => q.id === a.quizId)
+          );
+          
+          const avgScore = courseAttempts.length > 0
+            ? courseAttempts.reduce((sum, a) => sum + (a.score || 0), 0) / courseAttempts.length
+            : 0;
+
+          return {
+            courseId: course.id,
+            course: course.title,
+            avgScore: Math.round(avgScore),
+            attempts: courseAttempts.length
+          };
+        }).sort((a, b) => b.avgScore - a.avgScore).slice(0, 5);
+
+        setQuizPerformance(coursePerformance);
+
+        // Generate dynamic recent activity
+        const activities = [
+          { id: 1, type: 'user', action: `${users.length} total users registered`, time: getTimeAgo(new Date(Date.now() - 3600000)), user: 'System' },
+          { id: 2, type: 'course', action: `${courses.length} courses available`, time: getTimeAgo(new Date(Date.now() - 7200000)), user: 'System' },
+          { id: 3, type: 'quiz', action: `${attempts.length} quiz attempts recorded`, time: getTimeAgo(new Date(Date.now() - 10800000)), user: 'System' },
+          { id: 4, type: 'instructor', action: `${enrollments.length} active enrollments`, time: getTimeAgo(new Date(Date.now() - 14400000)), user: 'System' }
+        ];
+        setRecentActivityData(activities);
+
+      } catch (error) {
+        console.error('Error fetching analytics data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAnalyticsData();
+  }, []);
+
+  const statCards = [
     {
       title: 'Total Users',
-      value: '1,245',
+      value: stats.totalUsers.toLocaleString(),
       change: '+12%',
       changeType: 'positive',
       color: 'primary',
@@ -24,7 +153,7 @@ const AdminDashboard = () => {
     },
     {
       title: 'Total Courses',
-      value: '89',
+      value: stats.totalCourses.toLocaleString(),
       change: '+5',
       changeType: 'positive',
       color: 'secondary',
@@ -38,7 +167,7 @@ const AdminDashboard = () => {
     },
     {
       title: 'Total Lessons',
-      value: '342',
+      value: stats.totalLessons.toLocaleString(),
       change: '+18',
       changeType: 'positive',
       color: 'accent',
@@ -51,7 +180,7 @@ const AdminDashboard = () => {
     },
     {
       title: 'Total Quizzes',
-      value: '156',
+      value: stats.totalQuizzes.toLocaleString(),
       change: '+8',
       changeType: 'positive',
       color: 'success',
@@ -64,26 +193,12 @@ const AdminDashboard = () => {
     },
   ];
 
-  const recentActivity = [
-    { id: 1, type: 'user', action: 'New user registered: john@example.com', time: '5 minutes ago', user: 'John Doe' },
-    { id: 2, type: 'course', action: 'Course published: Web Development Bootcamp', time: '1 hour ago', user: 'Jane Instructor' },
-    { id: 3, type: 'quiz', action: 'Quiz completed: JavaScript Basics', time: '2 hours ago', user: 'Mike Student' },
-    { id: 4, type: 'instructor', action: 'Instructor approved: Sarah Johnson', time: '3 hours ago', user: 'Admin' },
-    { id: 5, type: 'certificate', action: 'Certificate issued: Data Science Course', time: '4 hours ago', user: 'Alex Student' },
-  ];
-
-  const activityColumns = [
-    { key: 'action', header: 'Activity' },
-    { key: 'user', header: 'User' },
-    { key: 'time', header: 'Time', align: 'right' },
-  ];
-
-  const filteredActivity = searchQuery
-    ? recentActivity.filter(item => 
+  const recentActivity = searchQuery
+    ? recentActivityData.filter(item => 
         item.action.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.user.toLowerCase().includes(searchQuery.toLowerCase())
       )
-    : recentActivity;
+    : recentActivityData;
 
   return (
     <div className="admin-dashboard-page">
@@ -94,7 +209,7 @@ const AdminDashboard = () => {
 
         {/* Stats Cards */}
         <div className="stats-grid">
-          {stats.map((stat, index) => (
+          {statCards.map((stat, index) => (
             <StatCard key={index} {...stat} />
           ))}
         </div>
@@ -102,32 +217,159 @@ const AdminDashboard = () => {
         {/* Analytics Section */}
         <div className="analytics-section">
           <div className="analytics-card">
-            <h2 className="section-title">Enrollment Growth</h2>
+            <h2 className="section-title">Enrollment Growth (Last 7 Days)</h2>
             <div className="chart-placeholder">
-              <svg width="100%" height="200" viewBox="0 0 800 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                  <linearGradient id="enrollmentGradient" x1="0" y1="0" x2="0" y2="200" gradientUnits="userSpaceOnUse">
-                    <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3"/>
-                    <stop offset="100%" stopColor="#3b82f6" stopOpacity="0"/>
-                  </linearGradient>
-                </defs>
-                <path d="M50 150 L150 120 L250 100 L350 80 L450 70 L550 60 L650 55 L750 50" stroke="#3b82f6" strokeWidth="3" fill="none"/>
-                <path d="M50 150 L150 120 L250 100 L350 80 L450 70 L550 60 L650 55 L750 50 L750 200 L50 200 Z" fill="url(#enrollmentGradient)"/>
-                <text x="400" y="180" textAnchor="middle" fill="#64748b" fontSize="14">Last 7 days</text>
-              </svg>
+              {loading ? (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '200px' }}>
+                  <p>Loading chart...</p>
+                </div>
+              ) : (
+                <svg width="100%" height="200" viewBox="0 0 800 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <linearGradient id="enrollmentGradient" x1="0" y1="0" x2="0" y2="200" gradientUnits="userSpaceOnUse">
+                      <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.3"/>
+                      <stop offset="100%" stopColor="#3b82f6" stopOpacity="0"/>
+                    </linearGradient>
+                  </defs>
+                  {/* Y-axis labels */}
+                  {[0, 25, 50, 75, 100].map((value, idx) => (
+                    <text key={`y-${idx}`} x="40" y={150 - value} fontSize="12" fill="#94a3b8" textAnchor="end">
+                      {value}
+                    </text>
+                  ))}
+                  {/* Grid lines */}
+                  {[0, 25, 50, 75, 100].map((value, idx) => (
+                    <line 
+                      key={`grid-${idx}`}
+                      x1="50" 
+                      y1={150 - value} 
+                      x2="750" 
+                      y2={150 - value} 
+                      stroke="#e2e8f0" 
+                      strokeDasharray="4"
+                    />
+                  ))}
+                  {/* Data bars */}
+                  {enrollmentData.map((data, idx) => {
+                    const maxEnrollments = Math.max(...enrollmentData.map(d => d.enrollments), 1);
+                    const barHeight = (data.enrollments / maxEnrollments) * 120;
+                    const xPos = 100 + idx * 95;
+                    return (
+                      <g key={`bar-${idx}`}>
+                        <rect
+                          x={xPos}
+                          y={150 - barHeight}
+                          width="60"
+                          height={barHeight}
+                          fill="#3b82f6"
+                          rx="4"
+                        />
+                        <text
+                          x={xPos + 30}
+                          y={170}
+                          textAnchor="middle"
+                          fontSize="12"
+                          fill="#64748b"
+                        >
+                          {data.date}
+                        </text>
+                        <text
+                          x={xPos + 30}
+                          y={150 - barHeight - 5}
+                          textAnchor="middle"
+                          fontSize="11"
+                          fill="#1e293b"
+                          fontWeight="600"
+                        >
+                          {data.enrollments}
+                        </text>
+                      </g>
+                    );
+                  })}
+                  <line x1="50" y1="150" x2="750" y2="150" stroke="#cbd5e1" strokeWidth="2"/>
+                </svg>
+              )}
+            </div>
+            <div style={{ marginTop: '12px', fontSize: '13px', color: '#64748b' }}>
+              <strong>{enrollmentData.reduce((sum, d) => sum + d.enrollments, 0)}</strong> total enrollments in the last 7 days
             </div>
           </div>
+          
           <div className="analytics-card">
-            <h2 className="section-title">Quiz Performance</h2>
+            <h2 className="section-title">Quiz Performance (Top 5 Courses)</h2>
             <div className="chart-placeholder">
-              <svg width="100%" height="200" viewBox="0 0 800 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="100" y="80" width="80" height="120" fill="#3b82f6" opacity="0.7" rx="4"/>
-                <rect x="220" y="60" width="80" height="140" fill="#0d9488" opacity="0.7" rx="4"/>
-                <rect x="340" y="100" width="80" height="100" fill="#f97316" opacity="0.7" rx="4"/>
-                <rect x="460" y="70" width="80" height="130" fill="#3b82f6" opacity="0.7" rx="4"/>
-                <rect x="580" y="90" width="80" height="110" fill="#0d9488" opacity="0.7" rx="4"/>
-                <text x="400" y="190" textAnchor="middle" fill="#64748b" fontSize="14">Average Score by Course</text>
-              </svg>
+              {loading ? (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '200px' }}>
+                  <p>Loading chart...</p>
+                </div>
+              ) : quizPerformance.length > 0 ? (
+                <svg width="100%" height="200" viewBox="0 0 800 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  {/* Y-axis labels */}
+                  {[0, 25, 50, 75, 100].map((value, idx) => (
+                    <text key={`y-${idx}`} x="40" y={150 - (value * 1.2)} fontSize="12" fill="#94a3b8" textAnchor="end">
+                      {value}%
+                    </text>
+                  ))}
+                  {/* Grid lines */}
+                  {[0, 25, 50, 75, 100].map((value, idx) => (
+                    <line 
+                      key={`grid-${idx}`}
+                      x1="50" 
+                      y1={150 - (value * 1.2)} 
+                      x2="750" 
+                      y2={150 - (value * 1.2)} 
+                      stroke="#e2e8f0" 
+                      strokeDasharray="4"
+                    />
+                  ))}
+                  {/* Data bars */}
+                  {quizPerformance.map((data, idx) => {
+                    const barHeight = (data.avgScore / 100) * 120;
+                    const xPos = 100 + idx * 130;
+                    const colors = ['#3b82f6', '#0d9488', '#f97316', '#8b5cf6', '#ec4899'];
+                    return (
+                      <g key={`bar-${idx}`}>
+                        <rect
+                          x={xPos}
+                          y={150 - barHeight}
+                          width="80"
+                          height={barHeight}
+                          fill={colors[idx]}
+                          opacity="0.8"
+                          rx="4"
+                        />
+                        <text
+                          x={xPos + 40}
+                          y={170}
+                          textAnchor="middle"
+                          fontSize="11"
+                          fill="#64748b"
+                        >
+                          {data.course.substring(0, 12)}
+                        </text>
+                        <text
+                          x={xPos + 40}
+                          y={150 - barHeight - 5}
+                          textAnchor="middle"
+                          fontSize="12"
+                          fill="#1e293b"
+                          fontWeight="600"
+                        >
+                          {data.avgScore}%
+                        </text>
+                      </g>
+                    );
+                  })}
+                  <line x1="50" y1="150" x2="750" y2="150" stroke="#cbd5e1" strokeWidth="2"/>
+                </svg>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '200px', color: '#94a3b8' }}>
+                  No quiz data available
+                </div>
+              )}
+            </div>
+            <div style={{ marginTop: '12px', fontSize: '13px', color: '#64748b' }}>
+              <strong>{quizPerformance.length}</strong> courses with quiz attempts • <strong>{quizPerformance[0]?.avgScore || 0}%</strong> highest average
             </div>
           </div>
         </div>
@@ -139,8 +381,8 @@ const AdminDashboard = () => {
             <button className="btn-view-all">View All</button>
           </div>
           <DataTable
-            columns={activityColumns}
-            data={filteredActivity}
+            columns={recentActivityData}
+            data={recentActivity}
             emptyMessage="No recent activity"
           />
         </div>
