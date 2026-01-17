@@ -1,19 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import DataTable from '../../../components/admin/DataTable/DataTable';
 import { useDashboardToast } from '../../../components/DashboardLayout/DashboardLayout';
+import ConfirmationDialog from '../../../components/ConfirmationDialog/ConfirmationDialog';
 import api from '../../../services/api';
 import './InstructorLessons.css';
 
 const InstructorLessons = () => {
   const [searchParams] = useSearchParams();
   const courseId = searchParams.get('course');
-  const { info } = useDashboardToast();
+  const navigate = useNavigate();
+  const { info, success, error } = useDashboardToast();
 
   const [courses, setCourses] = useState([]);
   const [lessons, setLessons] = useState([]);
   const [loadingCourses, setLoadingCourses] = useState(true);
   const [loadingLessons, setLoadingLessons] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, lessonId: null, message: '' });
 
   useEffect(() => {
     let mounted = true;
@@ -43,7 +46,15 @@ const InstructorLessons = () => {
         if (!mounted) return;
         setLessons(res.data || []);
       } catch (err) {
-        console.error('Failed to load lessons', err);
+        // Handle 403 / forbidden with a friendly message and redirect
+        if (err.response?.status === 403) {
+          setLessons([]);
+          error('You do not have permission to view lessons for this course.');
+          // navigate back to instructor courses
+          navigate('/instructor/courses');
+        } else {
+          console.error('Failed to load lessons', err);
+        }
       } finally {
         if (mounted) setLoadingLessons(false);
       }
@@ -79,6 +90,31 @@ const InstructorLessons = () => {
         );
       default:
         return null;
+    }
+  };
+
+  const confirmAction = async () => {
+    if (!confirmDialog.lessonId) {
+      setConfirmDialog({ isOpen: false, lessonId: null, message: '' });
+      return;
+    }
+    const idToDelete = confirmDialog.lessonId;
+    try {
+      await api.delete(`/lessons/${idToDelete}`);
+      // refresh lessons for the selected course
+      const selectedCourseIdForRefresh = courseId ? parseInt(courseId) : courses[0]?.id;
+      if (selectedCourseIdForRefresh) {
+        const res = await api.get(`/lessons/byCourse/${selectedCourseIdForRefresh}`);
+        setLessons(res.data || []);
+      } else {
+        setLessons(prev => prev.filter(l => l.id !== idToDelete));
+      }
+      success('Lesson deleted successfully');
+    } catch (err) {
+      console.error('Failed to delete lesson', err);
+      error(err.response?.data?.message || 'Failed to delete lesson');
+    } finally {
+      setConfirmDialog({ isOpen: false, lessonId: null, message: '' });
     }
   };
 
@@ -126,15 +162,19 @@ const InstructorLessons = () => {
       <button 
         className="btn-icon" 
         title="Delete Lesson" 
-        onClick={() => {
-          // UI only - would delete lesson in production
-          info('Delete lesson feature coming soon');
+        onClick={(e) => {
+          e.stopPropagation();
+          setConfirmDialog({ 
+            isOpen: true, 
+            lessonId: row.id, 
+            message: 'Are you sure you want to delete this lesson? This action cannot be undone.'
+          });
         }}
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M3 6H5H21M8 6V4C8 3.46957 8.21071 2.96086 8.58579 2.58579C8.96086 2.21071 9.46957 2 10 2H14C14.5304 2 15.0391 2.21071 15.4142 2.58579C15.7893 2.96086 16 3.46957 16 4V6M19 6V20C19 20.5304 18.7893 21.0391 18.4142 21.4142C18.0391 21.7893 17.5304 22 17 22H7C6.46957 22 5.96086 21.7893 5.58579 21.4142C5.21071 21.0391 5 20.5304 5 20V6H19Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
-      </button>
+      </button> 
     </div>
   );
 
@@ -181,6 +221,16 @@ const InstructorLessons = () => {
       <div className="reorder-note">
         <p>💡 Tip: Drag and drop lessons to reorder them (feature coming soon)</p>
       </div>
+      <ConfirmationDialog
+        isOpen={confirmDialog.isOpen}
+        onClose={() => setConfirmDialog({ isOpen: false, lessonId: null, message: '' })}
+        onConfirm={confirmAction}
+        title="Confirm Delete"
+        message={confirmDialog.message || 'Are you sure you want to delete this lesson?'}
+        confirmText="Delete"
+        cancelText="Cancel"
+        type="danger"
+      />
     </div>
   );
 };

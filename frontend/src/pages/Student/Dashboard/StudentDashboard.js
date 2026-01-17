@@ -334,9 +334,20 @@ const StudentDashboard = () => {
               </svg>
               <h3>You haven't enrolled in any courses yet</h3>
               <p>Start your learning journey by enrolling in a course</p>
-              <Link to="/courses" className="btn-primary">
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => {
+                  try {
+                    navigate('/courses');
+                  } catch (err) {
+                    console.error('Navigation error:', err);
+                    alert('Failed to open courses. Please try again.');
+                  }
+                }}
+              >
                 Browse Courses
-              </Link>
+              </button>
             </div>
           </div>
         ) : (

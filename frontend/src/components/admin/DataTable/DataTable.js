@@ -68,9 +68,12 @@ const DataTable = ({
                     if (fnArity >= 2) {
                       // render expects (value, row)
                       renderResult = column.render(cellValue, row);
+                    } else if (fnArity === 1) {
+                      // render expects a single arg - pass the cell value (most renderers expect the value)
+                      renderResult = column.render(cellValue);
                     } else {
-                      // render expects a single arg (most components expect the full row)
-                      renderResult = column.render(row, cellValue);
+                      // No args expected? call with cellValue for safety
+                      renderResult = column.render(cellValue, row);
                     }
                     
                     // Validate render result is not an object (unless it's a React element)

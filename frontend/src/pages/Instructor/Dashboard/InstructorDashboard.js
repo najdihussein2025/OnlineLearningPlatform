@@ -39,14 +39,17 @@ const InstructorDashboard = () => {
         let totalScore = 0;
         let scoreCount = 0;
         try {
+          const quizzesRes = await api.get('/quizzes');
+          const allQuizzes = quizzesRes.data || [];
+          const courseIds = myCourses.map(c => c.id);
+          const instructorQuizIds = allQuizzes.filter(q => courseIds.includes(q.courseId)).map(q => q.id);
+          
           const attemptsRes = await api.get('/quizattempts');
           const allAttempts = attemptsRes.data || [];
-          // we will filter by quizzes that belong to these courses
-          const courseIds = myCourses.map(c => c.id);
-          const relevantAttempts = allAttempts.filter(a => courseIds.includes(a.courseId || a.courseId));
+          const relevantAttempts = allAttempts.filter(a => instructorQuizIds.includes(a.quizId));
           relevantAttempts.forEach(a => { totalScore += (a.score || 0); scoreCount++; });
         } catch (err) {
-          // ignore
+          console.error('Failed to calculate quiz score', err);
         }
 
         const avgQuizScore = scoreCount ? Math.round(totalScore / scoreCount) : 0;

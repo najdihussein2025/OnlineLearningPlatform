@@ -58,37 +58,37 @@ const InstructorCourses = () => {
     {
       header: 'Course Title',
       accessor: 'title',
-      render: (course) => (
+      render: (value, course) => (
         <div className="course-title-cell">
-          <h4 className="course-title">{course.title}</h4>
+          <h4 className="course-title">{course?.title ?? value}</h4>
         </div>
       ),
     },
     {
       header: 'Status',
       accessor: 'status',
-      render: (course) => getStatusBadge(course),
+      render: (value, course) => getStatusBadge(course ?? { status: value, isPublished: value === 'published' }),
     },
     {
       header: 'Enrollments',
       accessor: 'enrollments',
-      render: (course) => course.enrollments ?? '-',
+      render: (value, course) => course?.enrollments ?? value ?? '-',
     },
     {
       header: 'Rating',
       accessor: 'rating',
-      render: (course) => course.rating ? <span className="rating">⭐ {course.rating}</span> : <span className="no-rating">-</span>,
+      render: (value, course) => (course?.rating ?? value) ? <span className="rating">⭐ {course?.rating ?? value}</span> : <span className="no-rating">-</span>,
     },
     {
       header: 'Revenue',
       accessor: 'revenue',
-      render: (course) => course.revenue ?? '-',
+      render: (value, course) => course?.revenue ?? value ?? '-',
     },
     {
       header: 'Last Updated',
       accessor: 'createdAt',
-      render: (course) => {
-        const ts = course.createdAt || course.CreatedAt || course.created || null;
+      render: (value, course) => {
+        const ts = course?.createdAt ?? course?.CreatedAt ?? course?.created ?? value ?? null;
         return ts ? new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-';
       }
     }

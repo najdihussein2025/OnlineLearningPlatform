@@ -1,16 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
+import api from '../../../services/api';
 import './InstructorSettings.css';
 
 const InstructorSettings = () => {
   const { user } = useAuth();
   const [showSuccess, setShowSuccess] = useState(false);
+  const [showError, setShowError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    firstName: user?.firstName || '',
-    lastName: user?.lastName || '',
+    fullName: user?.fullName || '',
     email: user?.email || '',
     bio: '',
-    expertise: '',
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
@@ -18,6 +20,16 @@ const InstructorSettings = () => {
     courseNotifications: true,
     studentNotifications: true,
   });
+
+  useEffect(() => {
+    if (user) {
+      setFormData(prev => ({
+        ...prev,
+        fullName: user.fullName || '',
+        email: user.email || '',
+      }));
+    }
+  }, [user]);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -27,10 +39,49 @@ const InstructorSettings = () => {
     }));
   };
 
-  const handleSave = (section) => {
-    // UI only - would save to API in production
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 3000);
+  const handleSave = async (section) => {
+    setLoading(true);
+    setShowError(false);
+    setErrorMessage('');
+    try {
+      if (section === 'profile') {
+        await api.put('/users/me', {
+          fullName: formData.fullName,
+          email: formData.email,
+        });
+      } else if (section === 'password') {
+        if (!formData.currentPassword || !formData.newPassword || !formData.confirmPassword) {
+          throw new Error('All password fields are required');
+        }
+        if (formData.newPassword !== formData.confirmPassword) {
+          throw new Error('New passwords do not match');
+        }
+        await api.post('/users/change-password', {
+          currentPassword: formData.currentPassword,
+          newPassword: formData.newPassword,
+        });
+        setFormData(prev => ({
+          ...prev,
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: '',
+        }));
+      } else if (section === 'notifications') {
+        localStorage.setItem('notificationPrefs', JSON.stringify({
+          emailNotifications: formData.emailNotifications,
+          courseNotifications: formData.courseNotifications,
+          studentNotifications: formData.studentNotifications,
+        }));
+      }
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 3000);
+    } catch (err) {
+      console.error(`Failed to save ${section}`, err);
+      setShowError(true);
+      setErrorMessage(err.response?.data?.message || err.message || `Failed to save ${section}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

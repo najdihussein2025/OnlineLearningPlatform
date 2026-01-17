@@ -25,8 +25,13 @@ import InstructorDashboard from '../pages/Instructor/Dashboard/InstructorDashboa
 import InstructorCourses from '../pages/Instructor/Courses/InstructorCourses';
 import NewCourse from '../pages/Instructor/Courses/NewCourse';
 import InstructorLessons from '../pages/Instructor/Lessons/InstructorLessons';
+import NewLesson from '../pages/Instructor/Lessons/NewLesson';
+import EditLesson from '../pages/Instructor/Lessons/EditLesson';
 import InstructorQuizzes from '../pages/Instructor/Quizzes/InstructorQuizzes';
+import NewQuiz from '../pages/Instructor/Quizzes/NewQuiz';
+import EditQuiz from '../pages/Instructor/Quizzes/EditQuiz';
 import InstructorStudents from '../pages/Instructor/Students/InstructorStudents';
+import EditStudent from '../pages/Instructor/Students/EditStudent';
 import InstructorAnalytics from '../pages/Instructor/Analytics/InstructorAnalytics';
 import InstructorSettings from '../pages/Instructor/Settings/InstructorSettings';
 import AdminDashboard from '../pages/Admin/Dashboard/AdminDashboard';
@@ -95,8 +100,14 @@ const AppRoutes = () => {
         <Route path="/instructor/courses" element={<InstructorCourses />} />
         <Route path="/instructor/courses/new" element={<NewCourse />} />
         <Route path="/instructor/lessons" element={<InstructorLessons />} />
+        <Route path="/instructor/lessons/new" element={<NewLesson />} />
+        <Route path="/instructor/lessons/:id/edit" element={<EditLesson />} />
         <Route path="/instructor/quizzes" element={<InstructorQuizzes />} />
+        <Route path="/instructor/quizzes/new" element={<NewQuiz />} />
+        <Route path="/instructor/quizzes/:id/edit" element={<EditQuiz />} />
         <Route path="/instructor/students" element={<InstructorStudents />} />
+        <Route path="/instructor/students/course/:courseId" element={<EditStudent />} />
+        <Route path="/instructor/students/:id" element={<EditStudent />} />
         <Route path="/instructor/analytics" element={<InstructorAnalytics />} />
         <Route path="/instructor/settings" element={<InstructorSettings />} />
       </Route>

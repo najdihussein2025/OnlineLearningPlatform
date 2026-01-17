@@ -567,6 +567,8 @@ namespace ids.Controllers
             return Ok(enrollments);
         }
 
+
+
         [HttpGet("courses")]
         [Authorize(Roles = "Student")]
         public async Task<IActionResult> GetMyCourses()

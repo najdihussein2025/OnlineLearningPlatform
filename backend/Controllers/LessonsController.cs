@@ -84,9 +84,18 @@ namespace ids.Controllers
             return Ok(dto);
         }
 
+        [Authorize(Roles = "instructor,admin")]
         [HttpPost]
         public async Task<ActionResult<LessonResponseDto>> CreateLesson(CreateLessonDto dto)
         {
+            // Only the owner (instructor) of the course or an admin can create lessons for it
+            var sub = User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub) ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!int.TryParse(sub, out var userId)) return Unauthorized();
+
+            var course = await _context.Courses.FindAsync(dto.CourseId);
+            if (course == null) return NotFound(new { message = "Course not found" });
+            if (course.CreatedBy != userId) return Forbid();
+
             var lesson = new Lesson
             {
                 CourseId = dto.CourseId,
@@ -115,11 +124,18 @@ namespace ids.Controllers
             return CreatedAtAction(nameof(GetLesson), new { id = lesson.Id }, response);
         }
 
+        [Authorize(Roles = "instructor,admin")]
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateLesson(int id, UpdateLessonDto dto)
         {
             var lesson = await _context.Lessons.FindAsync(id);
             if (lesson == null) return NotFound();
+
+            var course = await _context.Courses.FindAsync(lesson.CourseId);
+            var sub = User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub) ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!int.TryParse(sub, out var userId)) return Unauthorized();
+            if (course == null) return NotFound(new { message = "Course not found" });
+            if (course.CreatedBy != userId) return Forbid();
 
             lesson.Title = dto.Title ?? lesson.Title;
             lesson.Content = dto.Content ?? lesson.Content;
@@ -131,11 +147,18 @@ namespace ids.Controllers
             return NoContent();
         }
 
+        [Authorize(Roles = "instructor,admin")]
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteLesson(int id)
         {
             var lesson = await _context.Lessons.FindAsync(id);
             if (lesson == null) return NotFound();
+
+            var course = await _context.Courses.FindAsync(lesson.CourseId);
+            var sub = User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub) ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!int.TryParse(sub, out var userId)) return Unauthorized();
+            if (course == null) return NotFound(new { message = "Course not found" });
+            if (course.CreatedBy != userId) return Forbid();
 
             _context.Lessons.Remove(lesson);
             await _context.SaveChangesAsync();

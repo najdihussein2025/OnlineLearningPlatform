@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import DataTable from '../../../components/admin/DataTable/DataTable';
 import StatCard from '../../../components/admin/StatCard/StatCard';
+import { useDashboardToast } from '../../../components/DashboardLayout/DashboardLayout';
+import ConfirmationDialog from '../../../components/ConfirmationDialog/ConfirmationDialog';
 import api from '../../../services/api';
 import './InstructorQuizzes.css';
 
@@ -10,6 +12,28 @@ const InstructorQuizzes = () => {
   const [quizzes, setQuizzes] = useState([]);
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const navigate = useNavigate();
+  const { success, error: showError, info } = useDashboardToast();
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, quizId: null, message: '' });
+
+  const confirmAction = async () => {
+    if (!confirmDialog.quizId) {
+      setConfirmDialog({ isOpen: false, quizId: null, message: '' });
+      return;
+    }
+    const idToDelete = confirmDialog.quizId;
+    try {
+      await api.delete(`/quizzes/${idToDelete}`);
+      setQuizzes(prev => prev.filter(q => q.id !== idToDelete));
+      success('Quiz deleted successfully');
+    } catch (err) {
+      console.error('Failed to delete quiz', err);
+      showError(err.response?.data?.message || 'Failed to delete quiz');
+    } finally {
+      setConfirmDialog({ isOpen: false, quizId: null, message: '' });
+    }
+  }; 
 
   useEffect(() => {
     let mounted = true;
@@ -55,7 +79,7 @@ const InstructorQuizzes = () => {
     },
     {
       title: 'Total Attempts',
-      value: quizzes.reduce((sum, q) => sum + q.attempts, 0).toString(),
+      value: quizzes.reduce((sum, q) => sum + (q.attempts || 0), 0).toString(),
       icon: (
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M17 21V19C17 17.9391 16.5786 16.9217 15.8284 16.1716C15.0783 15.4214 14.0609 15 13 15H5C3.93913 15 2.92172 15.4214 2.17157 16.1716C1.42143 16.9217 1 17.9391 1 19V21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -80,42 +104,44 @@ const InstructorQuizzes = () => {
     {
       header: 'Quiz Title',
       accessor: 'title',
-      render: (quiz) => (
+      render: (value, quiz) => (
         <div className="quiz-title-cell">
-          <h4 className="quiz-title">{quiz.title}</h4>
-          <p className="quiz-course">{quiz.courseTitle}</p>
+          <h4 className="quiz-title">{quiz?.title ?? value}</h4>
+          <p className="quiz-course">{quiz?.courseTitle ?? ''}</p>
         </div>
       ),
     },
     {
       header: 'Questions',
       accessor: 'questions',
+      render: (value) => (Array.isArray(value) ? value.length : (value ?? '-')),
     },
     {
       header: 'Passing Score',
       accessor: 'passingScore',
-      render: (quiz) => `${quiz.passingScore}%`,
+      render: (value, quiz) => `${quiz?.passingScore ?? value ?? '-'}%`,
     },
     {
       header: 'Time Limit',
       accessor: 'timeLimit',
-      render: (quiz) => `${quiz.timeLimit} min`,
+      render: (value, quiz) => `${quiz?.timeLimit ?? value ?? '-'} min`,
     },
     {
       header: 'Attempts',
       accessor: 'attempts',
+      render: (value) => value ?? '-',
     },
     {
       header: 'Avg Score',
       accessor: 'averageScore',
-      render: (quiz) => quiz.averageScore ? `${quiz.averageScore}%` : '-',
+      render: (value) => value ? `${value}%` : '-',
     },
     {
       header: 'Status',
       accessor: 'status',
-      render: (quiz) => (
-        <span className={`status-badge status-${quiz.status}`}>
-          {quiz.status.charAt(0).toUpperCase() + quiz.status.slice(1)}
+      render: (value) => (
+        <span className={`status-badge status-${value}`}>
+          {value ? value.charAt(0).toUpperCase() + value.slice(1) : '-'}
         </span>
       ),
     },
@@ -141,6 +167,18 @@ const InstructorQuizzes = () => {
           <path d="M7 16L12 11L16 15L21 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       </Link>
+      <button
+        className="btn-icon"
+        title="Delete Quiz"
+        onClick={(e) => {
+          e.stopPropagation();
+          setConfirmDialog({ isOpen: true, quizId: quiz.id, message: 'Are you sure you want to delete this quiz? This action cannot be undone.' });
+        }}
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M3 6H5H21M8 6V4C8 3.46957 8.21071 2.96086 8.58579 2.58579C8.96086 2.21071 9.46957 2 10 2H14C14.5304 2 15.0391 2.21071 15.4142 2.58579C15.7893 2.96086 16 3.46957 16 4V6M19 6V20C19 20.5304 18.7893 21.0391 18.4142 21.4142C18.0391 21.7893 17.5304 22 17 22H7C6.46957 22 5.96086 21.7893 5.58579 21.4142C5.21071 21.0391 5 20.5304 5 20V6H19Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </button>
     </div>
   );
 
@@ -193,6 +231,16 @@ const InstructorQuizzes = () => {
         data={filteredQuizzes}
         actions={actions}
         emptyMessage="No quizzes found. Create your first quiz to get started!"
+      />
+      <ConfirmationDialog
+        isOpen={confirmDialog.isOpen}
+        onClose={() => setConfirmDialog({ isOpen: false, quizId: null, message: '' })}
+        onConfirm={confirmAction}
+        title="Confirm Delete"
+        message={confirmDialog.message || 'Are you sure you want to delete this quiz?'}
+        confirmText="Delete"
+        cancelText="Cancel"
+        type="danger"
       />
     </div>
   );
