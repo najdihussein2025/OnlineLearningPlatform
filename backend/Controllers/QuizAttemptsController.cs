@@ -39,6 +39,24 @@ namespace ids.Controllers
             var a = new QuizAttempt { QuizId = dto.QuizId, UserId = dto.UserId, Score = dto.Score, Passed = false };
             _context.QuizAttempts.Add(a);
             await _context.SaveChangesAsync();
+
+            // Get quiz info for audit log
+            var quiz = await _context.Quizzes.FindAsync(dto.QuizId);
+
+            // Log audit trail
+            var auditLog = new AuditLog
+            {
+                Action = "Create",
+                EntityType = "QuizAttempt",
+                EntityId = a.Id,
+                EntityName = quiz?.Title ?? $"Quiz {dto.QuizId}",
+                Description = $"Quiz attempt created - User: {dto.UserId}, Score: {dto.Score}%",
+                UserId = dto.UserId,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.AuditLogs.Add(auditLog);
+            await _context.SaveChangesAsync();
+
             var response = new QuizAttemptResponseDto 
             { 
                 Id = a.Id, 

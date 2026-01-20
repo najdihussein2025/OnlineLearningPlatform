@@ -135,10 +135,10 @@ const CourseProgressCard = ({ course, showButton = true }) => {
           {getCourseStatus() === 'completed' ? (
             <button 
               className="btn-primary" 
-              disabled
-              style={{ opacity: 0.6, cursor: 'not-allowed' }}
+              onClick={handleContinueLearning}
+              disabled={continuing}
             >
-              View Certificate
+              {continuing ? 'Loading...' : 'View Lessons'}
             </button>
           ) : getCourseStatus() === 'in-progress' ? (
             <button 
@@ -149,9 +149,13 @@ const CourseProgressCard = ({ course, showButton = true }) => {
               {continuing ? 'Loading...' : 'Continue Learning'}
             </button>
           ) : (
-            <Link to={`/student/courses/${courseId}`} className="btn-primary">
-              Start Course
-            </Link>
+            <button 
+              className="btn-primary" 
+              onClick={handleContinueLearning}
+              disabled={continuing}
+            >
+              {continuing ? 'Loading...' : 'Start Course'}
+            </button>
           )}
           <Link to={`/student/courses/${courseId}`} className="btn-secondary">
             View Details

@@ -6,7 +6,7 @@ import './InstructorLessons.css';
 const EditLesson = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ title: '', content: '', videoUrl: '', order: 1, estimatedDuration: '' });
+  const [form, setForm] = useState({ title: '', content: '', videoUrl: '', pdfUrl: '', externalUrl: '', order: 1, estimatedDuration: '' });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -18,7 +18,7 @@ const EditLesson = () => {
         const res = await api.get(`/lessons/${id}`);
         if (!mounted) return;
         const l = res.data;
-        setForm({ title: l.title || '', content: l.content || '', videoUrl: l.videoUrl || '', order: l.order || 1, estimatedDuration: l.estimatedDuration || '' });
+        setForm({ title: l.title || '', content: l.content || '', videoUrl: l.videoUrl || '', pdfUrl: l.pdfUrl || '', externalUrl: l.externalUrl || '', order: l.order || 1, estimatedDuration: l.estimatedDuration || '' });
       } catch (err) {
         if (err.response?.status === 403) {
           setError(err.response?.data?.message || 'You do not have permission to view or edit this lesson');
@@ -44,7 +44,7 @@ const EditLesson = () => {
     setSaving(true);
     setError(null);
     try {
-      const payload = { title: form.title, content: form.content, videoUrl: form.videoUrl, order: parseInt(form.order) || 1, estimatedDuration: form.estimatedDuration };
+      const payload = { title: form.title, content: form.content, videoUrl: form.videoUrl, pdfUrl: form.pdfUrl, externalUrl: form.externalUrl, order: parseInt(form.order) || 1, estimatedDuration: form.estimatedDuration };
       await api.put(`/lessons/${id}`, payload);
       // go back to the lessons list - fetch course id from lesson details not available, so go to instructor/lessons
       navigate('/instructor/lessons');
@@ -83,7 +83,15 @@ const EditLesson = () => {
         </div>
         <div className="form-group">
           <label>Video URL</label>
-          <input name="videoUrl" value={form.videoUrl} onChange={handleChange} />
+          <input name="videoUrl" value={form.videoUrl} onChange={handleChange} placeholder="e.g., https://youtu.be/..." />
+        </div>
+        <div className="form-group">
+          <label>PDF URL</label>
+          <input name="pdfUrl" value={form.pdfUrl} onChange={handleChange} placeholder="e.g., https://example.com/document.pdf" />
+        </div>
+        <div className="form-group">
+          <label>External URL (Resource Link)</label>
+          <input name="externalUrl" value={form.externalUrl} onChange={handleChange} placeholder="e.g., https://example.com" />
         </div>
         <div className="form-group">
           <label>Order</label>

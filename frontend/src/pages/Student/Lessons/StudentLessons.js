@@ -482,8 +482,10 @@ const StudentLessons = () => {
   // Determine lesson type
   const getLessonType = (lesson) => {
     if (lesson.videoUrl) return 'video';
+    if (lesson.pdfUrl) return 'pdf';
+    if (lesson.externalUrl) return 'external';
     if (lesson.content && lesson.content.length > 500) return 'article';
-    return 'video'; // default
+    return 'article'; // default
   };
 
   // Format duration from minutes
@@ -679,17 +681,26 @@ const StudentLessons = () => {
             <path d="M8 5V19L19 12L8 5Z" fill="currentColor"/>
           </svg>
         );
+      case 'pdf':
+        return (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M14 2H6C4.9 2 4 2.9 4 4V20C4 21.1 4.9 22 6 22H18C19.1 22 20 21.1 20 20V8L14 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M7 11H17M7 15H17M7 19H13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        );
+      case 'external':
+        return (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M18 13V19C18 19.5304 17.7893 20.0391 17.4142 20.4142C17.0391 20.7893 16.5304 21 16 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V8C3 7.46957 3.21071 6.96086 3.58579 6.58579C3.96086 6.21071 4.46957 6 5 6H11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M15 3H21V9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M10 14L21 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        );
       case 'article':
         return (
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M4 19.5C4 18.6716 4.67157 18 5.5 18H18.5C19.3284 18 20 18.6716 20 19.5V20.5C20 21.3284 19.3284 22 18.5 22H5.5C4.67157 22 4 21.3284 4 20.5V19.5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             <path d="M4 2H20V14H4V2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        );
-      case 'project':
-        return (
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M3 9L12 2L21 9V20C21 20.5304 20.7893 21.0391 20.4142 21.4142C20.0391 21.7893 19.5304 22 19 22H5C4.46957 22 3.96086 21.7893 3.58579 21.4142C3.21071 21.0391 3 20.5304 3 20V9Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         );
       default:
@@ -969,140 +980,184 @@ const StudentLessons = () => {
           </div>
 
           <div className="lesson-player">
-            {lessonType === 'video' ? (
-              selectedLesson.videoUrl ? (
-                <div className="video-container">
-                  {/* Online/Offline indicator */}
-                  {!isOnline && (
-                    <div className="offline-indicator" style={{
-                      position: 'absolute',
-                      top: '10px',
-                      right: '10px',
-                      background: 'rgba(0, 0, 0, 0.7)',
-                      color: 'white',
-                      padding: '8px 12px',
-                      borderRadius: '4px',
-                      fontSize: '12px',
-                      zIndex: 10,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px'
-                    }}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM13 17H11V15H13V17ZM13 13H11V7H13V13Z" fill="currentColor"/>
-                      </svg>
-                      Offline Mode
-                    </div>
-                  )}
-                  
-                  {/* Download button */}
-                  {selectedLesson.videoUrl && (
-                    <div className="video-download-controls" style={{
-                      position: 'absolute',
-                      top: '10px',
-                      left: '10px',
-                      zIndex: 10,
-                      display: 'flex',
-                      gap: '8px'
-                    }}>
-                      {!isDownloaded ? (
-                        <button
-                          onClick={handleDownloadVideo}
-                          disabled={isDownloading || !isOnline}
-                          className="btn-download"
-                          style={{
-                            background: isOnline ? 'rgba(0, 0, 0, 0.7)' : 'rgba(100, 100, 100, 0.7)',
-                            color: 'white',
-                            border: 'none',
-                            padding: '8px 12px',
-                            borderRadius: '4px',
-                            cursor: isDownloading || !isOnline ? 'not-allowed' : 'pointer',
-                            fontSize: '12px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            opacity: isDownloading || !isOnline ? 0.6 : 1
-                          }}
-                          title={!isOnline ? 'Requires internet connection' : 'Download for offline viewing'}
-                        >
-                          {isDownloading ? (
-                            <>
-                              <div className="spinner-small" style={{ width: '14px', height: '14px' }}></div>
-                              {Math.round(downloadProgress)}%
-                            </>
-                          ) : (
-                            <>
-                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M19 12V19H5V12H3V19C3 20.1 3.9 21 5 21H19C20.1 21 21 20.1 21 19V12H19ZM13 12.67L15.59 10.09L17 11.5L12 16.5L7 11.5L8.41 10.09L11 12.67V3H13V12.67Z" fill="currentColor"/>
-                              </svg>
-                              Download
-                            </>
-                          )}
-                        </button>
-                      ) : (
-                        <button
-                          onClick={handleDeleteDownload}
-                          className="btn-delete-download"
-                          style={{
-                            background: 'rgba(0, 0, 0, 0.7)',
-                            color: 'white',
-                            border: 'none',
-                            padding: '8px 12px',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            fontSize: '12px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px'
-                          }}
-                          title="Delete downloaded video"
-                        >
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M19 6.41L17.59 5L12 10.59L6.41 5L5 6.41L10.59 12L5 17.59L6.41 19L12 13.41L17.59 19L19 17.59L13.41 12L19 6.41Z" fill="currentColor"/>
-                          </svg>
-                          Downloaded
-                        </button>
-                      )}
-                    </div>
-                  )}
+            {lessonType === 'video' && selectedLesson.videoUrl ? (
+              <div className="video-container">
+                {/* Online/Offline indicator */}
+                {!isOnline && (
+                  <div className="offline-indicator" style={{
+                    position: 'absolute',
+                    top: '10px',
+                    right: '10px',
+                    background: 'rgba(0, 0, 0, 0.7)',
+                    color: 'white',
+                    padding: '8px 12px',
+                    borderRadius: '4px',
+                    fontSize: '12px',
+                    zIndex: 10,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM13 17H11V15H13V17ZM13 13H11V7H13V13Z" fill="currentColor"/>
+                    </svg>
+                    Offline Mode
+                  </div>
+                )}
+                
+                {/* Download button */}
+                {selectedLesson.videoUrl && (
+                  <div className="video-download-controls" style={{
+                    position: 'absolute',
+                    top: '10px',
+                    left: '10px',
+                    zIndex: 10,
+                    display: 'flex',
+                    gap: '8px'
+                  }}>
+                    {!isDownloaded ? (
+                      <button
+                        onClick={handleDownloadVideo}
+                        disabled={isDownloading || !isOnline}
+                        className="btn-download"
+                        style={{
+                          background: isOnline ? 'rgba(0, 0, 0, 0.7)' : 'rgba(100, 100, 100, 0.7)',
+                          color: 'white',
+                          border: 'none',
+                          padding: '8px 12px',
+                          borderRadius: '4px',
+                          cursor: isDownloading || !isOnline ? 'not-allowed' : 'pointer',
+                          fontSize: '12px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          opacity: isDownloading || !isOnline ? 0.6 : 1
+                        }}
+                        title={!isOnline ? 'Requires internet connection' : 'Download for offline viewing'}
+                      >
+                        {isDownloading ? (
+                          <>
+                            <div className="spinner-small" style={{ width: '14px', height: '14px' }}></div>
+                            {Math.round(downloadProgress)}%
+                          </>
+                        ) : (
+                          <>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M19 12V19H5V12H3V19C3 20.1 3.9 21 5 21H19C20.1 21 21 20.1 21 19V12H19ZM13 12.67L15.59 10.09L17 11.5L12 16.5L7 11.5L8.41 10.09L11 12.67V3H13V12.67Z" fill="currentColor"/>
+                            </svg>
+                            Download
+                          </>
+                        )}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleDeleteDownload}
+                        className="btn-delete-download"
+                        style={{
+                          background: 'rgba(0, 0, 0, 0.7)',
+                          color: 'white',
+                          border: 'none',
+                          padding: '8px 12px',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontSize: '12px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                        title="Delete downloaded video"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M19 6.41L17.59 5L12 10.59L6.41 5L5 6.41L10.59 12L5 17.59L6.41 19L12 13.41L17.59 19L19 17.59L13.41 12L19 6.41Z" fill="currentColor"/>
+                        </svg>
+                        Downloaded
+                      </button>
+                    )}
+                  </div>
+                )}
 
-                  <video 
-                    ref={videoRef}
-                    controls 
-                    className="lesson-video"
-                    src={offlineVideoUrl || selectedLesson.videoUrl}
-                  >
-                    <source src={offlineVideoUrl || selectedLesson.videoUrl} type="video/mp4" />
-                    Your browser does not support the video tag.
-                  </video>
-                  
-                  {downloadError && (
-                    <div className="error-message" style={{
-                      marginTop: '8px',
-                      color: 'var(--error-color, #dc3545)',
-                      fontSize: 'var(--font-size-sm)'
-                    }}>
-                      {downloadError}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="video-placeholder">
-                  <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M8 5V19L19 12L8 5Z" fill="currentColor"/>
+                <video 
+                  ref={videoRef}
+                  controls 
+                  className="lesson-video"
+                  src={offlineVideoUrl || selectedLesson.videoUrl}
+                >
+                  <source src={offlineVideoUrl || selectedLesson.videoUrl} type="video/mp4" />
+                  Your browser does not support the video tag.
+                </video>
+                
+                {downloadError && (
+                  <div className="error-message" style={{
+                    marginTop: '8px',
+                    color: 'var(--error-color, #dc3545)',
+                    fontSize: 'var(--font-size-sm)'
+                  }}>
+                    {downloadError}
+                  </div>
+                )}
+              </div>
+            ) : lessonType === 'pdf' && selectedLesson.pdfUrl ? (
+              <div className="pdf-container" style={{
+                width: '100%',
+                height: '600px',
+                border: '1px solid var(--border-color, #e0e0e0)',
+                borderRadius: '8px',
+                overflow: 'hidden'
+              }}>
+                <iframe
+                  src={selectedLesson.pdfUrl}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    border: 'none'
+                  }}
+                  title="PDF Viewer"
+                />
+              </div>
+            ) : lessonType === 'external' && selectedLesson.externalUrl ? (
+              <div className="external-url-container" style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 'var(--spacing-md)',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minHeight: '300px',
+                padding: 'var(--spacing-lg)',
+                background: 'var(--background-secondary, #f5f5f5)',
+                borderRadius: '8px'
+              }}>
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ opacity: 0.5 }}>
+                  <path d="M18 13V19C18 19.5304 17.7893 20.0391 17.4142 20.4142C17.0391 20.7893 16.5304 21 16 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V8C3 7.46957 3.21071 6.96086 3.58579 6.58579C3.96086 6.21071 4.46957 6 5 6H11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M15 3H21V9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M10 14L21 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <h3 style={{ margin: 'var(--spacing-md) 0', color: 'var(--text-primary)' }}>External Resource</h3>
+                <p style={{ marginBottom: 'var(--spacing-lg)', color: 'var(--text-secondary)', textAlign: 'center' }}>
+                  Click the button below to open the external resource in a new window.
+                </p>
+                <a 
+                  href={selectedLesson.externalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-primary"
+                  style={{ 
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    textDecoration: 'none'
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M18 13V19C18 19.5304 17.7893 20.0391 17.4142 20.4142C17.0391 20.7893 16.5304 21 16 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V8C3 7.46957 3.21071 6.96086 3.58579 6.58579C3.96086 6.21071 4.46957 6 5 6H11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M15 3H21V9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M10 14L21 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
-                  <p>Video Player Placeholder</p>
-                  <p className="video-placeholder-note">Video content would be displayed here</p>
-                </div>
-              )
-            ) : lessonType === 'article' ? (
-              <div className="article-content">
-                <div dangerouslySetInnerHTML={{ __html: selectedLesson.content || '<p>No content available.</p>' }} />
+                  Open Resource
+                </a>
               </div>
             ) : (
-              <div className="project-content">
-                <h2>Project Instructions</h2>
-                <div dangerouslySetInnerHTML={{ __html: selectedLesson.content || '<p>No project instructions available.</p>' }} />
+              <div className="article-content">
+                <div dangerouslySetInnerHTML={{ __html: selectedLesson.content || '<p>No content available for this lesson.</p>' }} />
               </div>
             )}
           </div>

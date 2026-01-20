@@ -12,6 +12,8 @@ const NewLesson = () => {
     title: '',
     content: '',
     videoUrl: '',
+    pdfUrl: '',
+    externalUrl: '',
     order: 1,
     estimatedDuration: ''
   });
@@ -37,6 +39,8 @@ const NewLesson = () => {
         title: form.title,
         content: form.content,
         videoUrl: form.videoUrl,
+        pdfUrl: form.pdfUrl,
+        externalUrl: form.externalUrl,
         order: parseInt(form.order) || 1,
         estimatedDuration: form.estimatedDuration
       };
@@ -76,7 +80,15 @@ const NewLesson = () => {
         </div>
         <div className="form-group">
           <label>Video URL</label>
-          <input name="videoUrl" value={form.videoUrl} onChange={handleChange} />
+          <input name="videoUrl" value={form.videoUrl} onChange={handleChange} placeholder="e.g., https://youtu.be/..." />
+        </div>
+        <div className="form-group">
+          <label>PDF URL</label>
+          <input name="pdfUrl" value={form.pdfUrl} onChange={handleChange} placeholder="e.g., https://example.com/document.pdf" />
+        </div>
+        <div className="form-group">
+          <label>External URL (Resource Link)</label>
+          <input name="externalUrl" value={form.externalUrl} onChange={handleChange} placeholder="e.g., https://example.com" />
         </div>
         <div className="form-group">
           <label>Order</label>

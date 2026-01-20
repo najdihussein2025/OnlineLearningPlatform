@@ -1099,6 +1099,7 @@ namespace ids.Controllers
             }
 
             // Build lessons array with completion status (always return array, never null)
+            // NOTE: ALL lessons are returned regardless of course completion status - students can always review lessons
             var completedLessonIdsSafe = completedLessonIds ?? new List<int>();
             var lessonsArray = (lessons != null && lessons.Any() ? lessons : new List<Lesson>()).Select(l => new
             {
@@ -1106,6 +1107,8 @@ namespace ids.Controllers
                 title = l.Title ?? string.Empty,
                 content = l.Content ?? string.Empty,
                 videoUrl = l.VideoUrl ?? string.Empty,
+                pdfUrl = l.PdfUrl ?? string.Empty,
+                externalUrl = l.ExternalUrl ?? string.Empty,
                 order = l.Order,
                 estimatedDuration = l.EstimatedDuration,
                 isCompleted = completedLessonIdsSafe.Contains(l.Id)
@@ -1199,6 +1202,20 @@ namespace ids.Controllers
             _context.Enrollments.Add(enrollment);
             await _context.SaveChangesAsync();
 
+            // Log audit trail
+            var auditLog = new AuditLog
+            {
+                Action = "Enroll",
+                EntityType = "Enrollment",
+                EntityId = enrollment.Id,
+                EntityName = $"Course: {course.Title}",
+                Description = $"Student enrolled in course",
+                UserId = userId,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.AuditLogs.Add(auditLog);
+            await _context.SaveChangesAsync();
+
             return Ok(new { message = "Enrollment successful" });
         }
 
@@ -1233,6 +1250,20 @@ namespace ids.Controllers
             enrollment.Status = EnrollmentStatus.InProgress;
             enrollment.StartedAt = DateTime.UtcNow;
 
+            await _context.SaveChangesAsync();
+
+            // Log audit trail
+            var auditLog = new AuditLog
+            {
+                Action = "Start",
+                EntityType = "Course",
+                EntityId = courseId,
+                EntityName = enrollment.Course.Title,
+                Description = $"Student started course",
+                UserId = userId,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.AuditLogs.Add(auditLog);
             await _context.SaveChangesAsync();
 
             // Return updated enrollment state
@@ -1324,6 +1355,7 @@ namespace ids.Controllers
                 }
 
                 // Build response - all lessons for CourseId, with completion status as metadata
+                // NOTE: ALL lessons are returned regardless of course completion status - students can always review lessons
                 var lessonsArray = lessons.Select(l => new
                 {
                     id = l.Id,
@@ -1331,6 +1363,8 @@ namespace ids.Controllers
                     title = l.Title ?? string.Empty,
                     content = l.Content ?? string.Empty,
                     videoUrl = l.VideoUrl ?? string.Empty,
+                    pdfUrl = l.PdfUrl ?? string.Empty,
+                    externalUrl = l.ExternalUrl ?? string.Empty,
                     order = l.Order,
                     estimatedDuration = l.EstimatedDuration,
                     createdAt = l.CreatedAt,
@@ -1443,6 +1477,20 @@ namespace ids.Controllers
 
             // Update enrollment LastAccessed
             enrollment.LastAccessed = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
+            // Log audit trail
+            var auditLog = new AuditLog
+            {
+                Action = "Complete",
+                EntityType = "Lesson",
+                EntityId = lessonId,
+                EntityName = lesson.Title,
+                Description = $"Student completed lesson",
+                UserId = userId,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.AuditLogs.Add(auditLog);
             await _context.SaveChangesAsync();
 
             // Check and update course completion status
@@ -1700,6 +1748,20 @@ namespace ids.Controllers
             // Update enrollment LastAccessed
             enrollment.LastAccessed = DateTime.UtcNow;
 
+            await _context.SaveChangesAsync();
+
+            // Log audit trail
+            var auditLog = new AuditLog
+            {
+                Action = "Submit",
+                EntityType = "QuizAttempt",
+                EntityId = attempt.Id,
+                EntityName = quiz.Title,
+                Description = $"Student submitted quiz attempt - Score: {score}%",
+                UserId = userId,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.AuditLogs.Add(auditLog);
             await _context.SaveChangesAsync();
 
             // ALWAYS check and update course completion status after quiz submission
@@ -2766,6 +2828,20 @@ namespace ids.Controllers
                 user.FullName = dto.FullName.Trim();
                 await _context.SaveChangesAsync();
 
+                // Log audit trail
+                var auditLog = new AuditLog
+                {
+                    Action = "Update",
+                    EntityType = "Profile",
+                    EntityId = userId,
+                    EntityName = user.FullName,
+                    Description = $"Student updated profile",
+                    UserId = userId,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _context.AuditLogs.Add(auditLog);
+                await _context.SaveChangesAsync();
+
                 return Ok(new
                 {
                     message = "Profile updated successfully",
@@ -2846,6 +2922,20 @@ namespace ids.Controllers
 
                 // Hash and save new password
                 user.HashedPassword = _passwordHasher.HashPassword(user: null, dto.NewPassword);
+                await _context.SaveChangesAsync();
+
+                // Log audit trail
+                var auditLog = new AuditLog
+                {
+                    Action = "Update",
+                    EntityType = "Password",
+                    EntityId = userId,
+                    EntityName = user.FullName,
+                    Description = $"Student changed password",
+                    UserId = userId,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _context.AuditLogs.Add(auditLog);
                 await _context.SaveChangesAsync();
 
                 return Ok(new { message = "Password changed successfully" });

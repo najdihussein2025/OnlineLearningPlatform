@@ -260,8 +260,14 @@ namespace ids.Migrations
                     b.Property<int>("EstimatedDuration")
                         .HasColumnType("int");
 
+                    b.Property<string>("ExternalUrl")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<int>("Order")
                         .HasColumnType("int");
+
+                    b.Property<string>("PdfUrl")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Title")
                         .IsRequired()

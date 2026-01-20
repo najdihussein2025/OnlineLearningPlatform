@@ -31,6 +31,8 @@ namespace ids.Controllers
                 Title = l.Title,
                 Content = l.Content,
                 VideoUrl = l.VideoUrl,
+                PdfUrl = l.PdfUrl,
+                ExternalUrl = l.ExternalUrl,
                 Order = l.Order,
                 EstimatedDuration = l.EstimatedDuration,
                 CreatedAt = l.CreatedAt
@@ -57,6 +59,8 @@ namespace ids.Controllers
                 Title = l.Title,
                 Content = l.Content,
                 VideoUrl = l.VideoUrl,
+                PdfUrl = l.PdfUrl,
+                ExternalUrl = l.ExternalUrl,
                 Order = l.Order,
                 EstimatedDuration = l.EstimatedDuration,
                 CreatedAt = l.CreatedAt
@@ -77,6 +81,8 @@ namespace ids.Controllers
                 Title = l.Title,
                 Content = l.Content,
                 VideoUrl = l.VideoUrl,
+                PdfUrl = l.PdfUrl,
+                ExternalUrl = l.ExternalUrl,
                 Order = l.Order,
                 EstimatedDuration = l.EstimatedDuration,
                 CreatedAt = l.CreatedAt
@@ -102,6 +108,8 @@ namespace ids.Controllers
                 Title = dto.Title,
                 Content = dto.Content,
                 VideoUrl = dto.VideoUrl,
+                PdfUrl = dto.PdfUrl,
+                ExternalUrl = dto.ExternalUrl,
                 Order = dto.Order,
                 EstimatedDuration = dto.EstimatedDuration
             };
@@ -130,6 +138,8 @@ namespace ids.Controllers
                 Title = lesson.Title,
                 Content = lesson.Content,
                 VideoUrl = lesson.VideoUrl,
+                PdfUrl = lesson.PdfUrl,
+                ExternalUrl = lesson.ExternalUrl,
                 Order = lesson.Order,
                 EstimatedDuration = lesson.EstimatedDuration,
                 CreatedAt = lesson.CreatedAt
@@ -152,11 +162,15 @@ namespace ids.Controllers
             if (course.CreatedBy != userId) return Forbid();
 
             var previousTitle = lesson.Title;
-            lesson.Title = dto.Title ?? lesson.Title;
-            lesson.Content = dto.Content ?? lesson.Content;
-            lesson.VideoUrl = dto.VideoUrl ?? lesson.VideoUrl;
-            lesson.Order = dto.Order ?? lesson.Order;
-            lesson.EstimatedDuration = dto.EstimatedDuration ?? lesson.EstimatedDuration;
+            
+            // Update all fields - treat null as "don't change", but allow empty strings to clear fields
+            if (dto.Title != null) lesson.Title = dto.Title;
+            if (dto.Content != null) lesson.Content = dto.Content;
+            if (dto.VideoUrl != null) lesson.VideoUrl = dto.VideoUrl;
+            if (dto.PdfUrl != null) lesson.PdfUrl = dto.PdfUrl;
+            if (dto.ExternalUrl != null) lesson.ExternalUrl = dto.ExternalUrl;
+            if (dto.Order.HasValue) lesson.Order = dto.Order.Value;
+            if (dto.EstimatedDuration.HasValue) lesson.EstimatedDuration = dto.EstimatedDuration.Value;
 
             await _context.SaveChangesAsync();
 

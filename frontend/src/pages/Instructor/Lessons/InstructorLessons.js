@@ -66,6 +66,14 @@ const InstructorLessons = () => {
   const selectedCourseIdNum = courseId ? parseInt(courseId) : courses[0]?.id || null;
   const selectedCourse = courses.find(c => c.id === selectedCourseIdNum) || null;
 
+  const getLessonType = (lesson) => {
+    if (lesson.videoUrl) return 'video';
+    if (lesson.pdfUrl) return 'pdf';
+    if (lesson.externalUrl) return 'external';
+    if (lesson.content && lesson.content.length > 500) return 'article';
+    return 'article';
+  };
+
   const getLessonTypeIcon = (type) => {
     switch (type) {
       case 'video':
@@ -74,18 +82,25 @@ const InstructorLessons = () => {
             <path d="M8 5V19L19 12L8 5Z" fill="currentColor"/>
           </svg>
         );
+      case 'pdf':
+        return (
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M13 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V9L13 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        );
+      case 'external':
+        return (
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M18 13V19C18 19.5304 17.7893 20.0391 17.4142 20.4142C17.0391 20.7893 16.5304 21 16 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V8C3 7.46957 3.21071 6.96086 3.58579 6.58579C3.96086 6.21071 4.46957 6 5 6H11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M15 3H21V9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M10 14L21 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        );
       case 'article':
         return (
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M4 19.5C4 18.6716 4.67157 18 5.5 18H18.5C19.3284 18 20 18.6716 20 19.5V20.5C20 21.3284 19.3284 22 18.5 22H5.5C4.67157 22 4 21.3284 4 20.5V19.5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             <path d="M4 2H20V14H4V2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        );
-      case 'attachment':
-        return (
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M7 7H17M7 11H17M7 15H13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         );
       default:
@@ -141,7 +156,7 @@ const InstructorLessons = () => {
       accessor: 'type',
       render: (value) => (
         <span className="lesson-type-badge">
-          {value.charAt(0).toUpperCase() + value.slice(1)}
+          {value ? value.charAt(0).toUpperCase() + value.slice(1) : 'Article'}
         </span>
       ),
     },
@@ -213,7 +228,7 @@ const InstructorLessons = () => {
 
       <DataTable
         columns={columns}
-        data={lessons}
+        data={lessons.map(lesson => ({ ...lesson, type: getLessonType(lesson) }))}
         actions={actions}
         emptyMessage="No lessons found. Add your first lesson to get started!"
       />
@@ -234,6 +249,5 @@ const InstructorLessons = () => {
     </div>
   );
 };
-
 export default InstructorLessons;
 

@@ -62,6 +62,23 @@ namespace ids.Controllers
             _context.Questions.Add(question);
             await _context.SaveChangesAsync();
 
+            // Get quiz info for audit log
+            var quiz = await _context.Quizzes.FindAsync(dto.QuizId);
+
+            // Log audit trail
+            var auditLog = new AuditLog
+            {
+                Action = "Create",
+                EntityType = "Question",
+                EntityId = question.Id,
+                EntityName = quiz?.Title ?? $"Quiz {dto.QuizId}",
+                Description = $"Question created: {question.QuestionText}",
+                UserId = null,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.AuditLogs.Add(auditLog);
+            await _context.SaveChangesAsync();
+
             var response = new QuestionResponseDto
             {
                 Id = question.Id,
@@ -80,10 +97,29 @@ namespace ids.Controllers
             var q = await _context.Questions.FindAsync(id);
             if (q == null) return NotFound();
 
+            var previousText = q.QuestionText;
             q.QuestionText = dto.QuestionText ?? q.QuestionText;
             q.QuestionType = dto.QuestionType ?? q.QuestionType;
 
             await _context.SaveChangesAsync();
+
+            // Get quiz info for audit log
+            var quiz = await _context.Quizzes.FindAsync(q.QuizId);
+
+            // Log audit trail
+            var auditLog = new AuditLog
+            {
+                Action = "Update",
+                EntityType = "Question",
+                EntityId = q.Id,
+                EntityName = quiz?.Title ?? $"Quiz {q.QuizId}",
+                Description = $"Question updated",
+                UserId = null,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.AuditLogs.Add(auditLog);
+            await _context.SaveChangesAsync();
+
             return NoContent();
         }
 
@@ -93,8 +129,26 @@ namespace ids.Controllers
             var q = await _context.Questions.FindAsync(id);
             if (q == null) return NotFound();
 
+            // Get quiz info for audit log
+            var quiz = await _context.Quizzes.FindAsync(q.QuizId);
+
             _context.Questions.Remove(q);
             await _context.SaveChangesAsync();
+
+            // Log audit trail
+            var auditLog = new AuditLog
+            {
+                Action = "Delete",
+                EntityType = "Question",
+                EntityId = id,
+                EntityName = quiz?.Title ?? $"Quiz {q.QuizId}",
+                Description = $"Question deleted: {q.QuestionText}",
+                UserId = null,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.AuditLogs.Add(auditLog);
+            await _context.SaveChangesAsync();
+
             return Ok(new { message = "Question deleted successfully" });
         }
     }

@@ -59,6 +59,24 @@ namespace ids.Controllers
             var e = new Enrollment { UserId = dto.UserId, CourseId = dto.CourseId };
             _context.Enrollments.Add(e);
             await _context.SaveChangesAsync();
+
+            // Get course info for audit log
+            var course = await _context.Courses.FindAsync(dto.CourseId);
+            
+            // Log audit trail
+            var auditLog = new AuditLog
+            {
+                Action = "Create",
+                EntityType = "Enrollment",
+                EntityId = e.Id,
+                EntityName = course?.Title ?? $"Course {dto.CourseId}",
+                Description = $"Enrollment created for user {dto.UserId}",
+                UserId = null, // API call without specific user context
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.AuditLogs.Add(auditLog);
+            await _context.SaveChangesAsync();
+
             var response = new EnrollmentResponseDto { Id = e.Id, UserId = e.UserId, CourseId = e.CourseId, EnrolledAt = e.EnrolledAt };
             return CreatedAtAction(nameof(GetEnrollment), new { id = e.Id }, response);
         }
@@ -69,8 +87,26 @@ namespace ids.Controllers
             var e = await _context.Enrollments.FindAsync(id);
             if (e == null) return NotFound();
 
+            // Get course info for audit log
+            var course = await _context.Courses.FindAsync(e.CourseId);
+
             _context.Enrollments.Remove(e);
             await _context.SaveChangesAsync();
+
+            // Log audit trail
+            var auditLog = new AuditLog
+            {
+                Action = "Delete",
+                EntityType = "Enrollment",
+                EntityId = id,
+                EntityName = course?.Title ?? $"Course {e.CourseId}",
+                Description = $"Enrollment deleted for user {e.UserId}",
+                UserId = null, // API call without specific user context
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.AuditLogs.Add(auditLog);
+            await _context.SaveChangesAsync();
+
             return Ok(new { message = "Enrollment deleted successfully" });
         }
     }

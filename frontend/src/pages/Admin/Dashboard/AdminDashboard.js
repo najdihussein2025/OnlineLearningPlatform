@@ -222,8 +222,19 @@ const AdminDashboard = () => {
   return (
     <div className="admin-dashboard-page">
         <div className="dashboard-header-section">
-          <h1 className="page-title">Dashboard Overview</h1>
-          <p className="page-subtitle">Monitor platform activity and statistics</p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <h1 className="page-title">Dashboard Overview</h1>
+              <p className="page-subtitle">Monitor platform activity and statistics</p>
+            </div>
+            <button 
+              className="btn-view-all"
+              onClick={() => navigate('/admin/activity-log')}
+              style={{ marginBottom: '10px', padding: '8px 16px', height: 'fit-content' }}
+            >
+              📋 View Activity Log
+            </button>
+          </div>
         </div>
 
         {/* Stats Cards */}
