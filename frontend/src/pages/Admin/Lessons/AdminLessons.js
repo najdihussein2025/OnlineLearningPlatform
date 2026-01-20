@@ -1,28 +1,49 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import DataTable from '../../../components/admin/DataTable/DataTable';
 import { useDashboardToast } from '../../../components/DashboardLayout/DashboardLayout';
 import ConfirmationDialog from '../../../components/ConfirmationDialog/ConfirmationDialog';
+import api from '../../../services/api';
 import './AdminLessons.css';
 
 const AdminLessons = () => {
+  const navigate = useNavigate();
   const [selectedCourse, setSelectedCourse] = useState('all');
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, action: null, lessonId: null });
-  const { success, error, info } = useDashboardToast();
+  const [lessons, setLessons] = useState([]);
+  const [courses, setCourses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const { success, error } = useDashboardToast();
 
-  // Mock lessons data
-  const lessons = [
-    { id: 1, title: 'Introduction to HTML', course: 'Web Development Bootcamp', type: 'video', order: 1, duration: '15 min' },
-    { id: 2, title: 'CSS Fundamentals', course: 'Web Development Bootcamp', type: 'video', order: 2, duration: '20 min' },
-    { id: 3, title: 'JavaScript Basics', course: 'Web Development Bootcamp', type: 'article', order: 3, duration: '25 min' },
-    { id: 4, title: 'Python Overview', course: 'Data Science with Python', type: 'video', order: 1, duration: '18 min' },
-    { id: 5, title: 'Data Structures', course: 'Data Science with Python', type: 'article', order: 2, duration: '30 min' },
-  ];
+  useEffect(() => {
+    fetchData();
+  }, []);
 
-  const courses = ['All Courses', 'Web Development Bootcamp', 'Data Science with Python'];
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [lessonsRes, coursesRes] = await Promise.all([
+        api.get('/lessons'),
+        api.get('/courses')
+      ]);
 
-  const filteredLessons = selectedCourse === 'all' 
-    ? lessons 
-    : lessons.filter(lesson => lesson.course === selectedCourse);
+      const lessonsData = Array.isArray(lessonsRes.data) ? lessonsRes.data : lessonsRes.data?.data || [];
+      const coursesData = Array.isArray(coursesRes.data) ? coursesRes.data : coursesRes.data?.data || [];
+      
+      setLessons(lessonsData);
+      setCourses(coursesData);
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      error('Failed to load lessons');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getCourseTitle = (courseId) => {
+    const course = courses.find(c => c.id === courseId);
+    return course?.title || 'Unknown Course';
+  };
 
   const columns = [
     {
@@ -36,8 +57,9 @@ const AdminLessons = () => {
       header: 'Lesson Title',
     },
     {
-      key: 'course',
+      key: 'courseId',
       header: 'Course',
+      render: (value) => getCourseTitle(value),
     },
     {
       key: 'type',
@@ -56,7 +78,7 @@ const AdminLessons = () => {
   ];
 
   const handleEdit = (lessonId) => {
-    info('Edit lesson feature coming soon');
+    navigate(`/admin/lessons/${lessonId}`);
   };
 
   const handleDelete = (lessonId) => {
@@ -69,12 +91,19 @@ const AdminLessons = () => {
   };
 
   const handleCreate = () => {
-    info('Create lesson feature coming soon');
+    navigate('/admin/lessons/new');
   };
 
-  const confirmAction = () => {
+  const confirmAction = async () => {
     if (confirmDialog.action === 'delete') {
-      success(`Lesson ${confirmDialog.lessonId} deleted successfully`);
+      try {
+        await api.delete(`/lessons/${confirmDialog.lessonId}`);
+        success('Lesson deleted successfully');
+        await fetchData();
+      } catch (err) {
+        error('Failed to delete lesson');
+        console.error('Delete error:', err);
+      }
     }
     setConfirmDialog({ isOpen: false, action: null, lessonId: null });
   };
@@ -122,24 +151,29 @@ const AdminLessons = () => {
               onChange={(e) => setSelectedCourse(e.target.value)}
               className="filter-select"
             >
-              {courses.map((course, index) => (
-                <option key={index} value={index === 0 ? 'all' : course}>
-                  {course}
+              <option value="all">All Courses</option>
+              {courses.map((course) => (
+                <option key={course.id} value={course.id}>
+                  {course.title}
                 </option>
               ))}
             </select>
           </div>
           <div className="filter-results">
-            Showing {filteredLessons.length} lessons
+            Showing {selectedCourse === 'all' ? lessons.length : lessons.filter(l => l.courseId === parseInt(selectedCourse)).length} lessons
           </div>
         </div>
 
-        <DataTable
-          columns={columns}
-          data={filteredLessons}
-          actions={actions}
-          emptyMessage="No lessons found"
-        />
+        {loading ? (
+          <div className="loading-message">Loading lessons...</div>
+        ) : (
+          <DataTable
+            columns={columns}
+            data={selectedCourse === 'all' ? lessons : lessons.filter(l => l.courseId === parseInt(selectedCourse))}
+            actions={actions}
+            emptyMessage="No lessons found"
+          />
+        )}
       </div>
       <ConfirmationDialog
         isOpen={confirmDialog.isOpen}

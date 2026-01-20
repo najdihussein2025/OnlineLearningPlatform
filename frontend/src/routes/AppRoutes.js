@@ -24,6 +24,7 @@ import InstructorLayout from '../layouts/InstructorLayout';
 import InstructorDashboard from '../pages/Instructor/Dashboard/InstructorDashboard';
 import InstructorCourses from '../pages/Instructor/Courses/InstructorCourses';
 import NewCourse from '../pages/Instructor/Courses/NewCourse';
+import EditCourse from '../pages/Instructor/Courses/EditCourse';
 import InstructorLessons from '../pages/Instructor/Lessons/InstructorLessons';
 import NewLesson from '../pages/Instructor/Lessons/NewLesson';
 import EditLesson from '../pages/Instructor/Lessons/EditLesson';
@@ -37,11 +38,18 @@ import InstructorSettings from '../pages/Instructor/Settings/InstructorSettings'
 import AdminDashboard from '../pages/Admin/Dashboard/AdminDashboard';
 import AdminUsers from '../pages/Admin/Users/AdminUsers';
 import AdminCourses from '../pages/Admin/Courses/AdminCourses';
+import AdminNewCourse from '../pages/Admin/Courses/AdminNewCourse';
+import AdminEditCourse from '../pages/Admin/Courses/AdminEditCourse';
 import AdminLessons from '../pages/Admin/Lessons/AdminLessons';
+import AdminNewLesson from '../pages/Admin/Lessons/AdminNewLesson';
+import AdminEditLesson from '../pages/Admin/Lessons/AdminEditLesson';
 import AdminQuizzes from '../pages/Admin/Quizzes/AdminQuizzes';
+import AdminNewQuiz from '../pages/Admin/Quizzes/AdminNewQuiz';
+import AdminEditQuiz from '../pages/Admin/Quizzes/AdminEditQuiz';
 import AdminCertificates from '../pages/Admin/Certificates/AdminCertificates';
 import AdminAnalytics from '../pages/Admin/Analytics/AdminAnalytics';
 import AdminSettings from '../pages/Admin/Settings/AdminSettings';
+import ActivityLog from '../pages/Admin/ActivityLog/ActivityLog';
 import ProtectedRoute from '../components/ProtectedRoute/ProtectedRoute';
 
 const AppRoutes = () => {
@@ -99,6 +107,7 @@ const AppRoutes = () => {
         <Route path="/instructor/dashboard" element={<InstructorDashboard />} />
         <Route path="/instructor/courses" element={<InstructorCourses />} />
         <Route path="/instructor/courses/new" element={<NewCourse />} />
+        <Route path="/instructor/courses/:id" element={<EditCourse />} />
         <Route path="/instructor/lessons" element={<InstructorLessons />} />
         <Route path="/instructor/lessons/new" element={<NewLesson />} />
         <Route path="/instructor/lessons/:id/edit" element={<EditLesson />} />
@@ -121,10 +130,17 @@ const AppRoutes = () => {
         }
       >
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
+        <Route path="/admin/activity-log" element={<ActivityLog />} />
         <Route path="/admin/users" element={<AdminUsers />} />
         <Route path="/admin/courses" element={<AdminCourses />} />
+        <Route path="/admin/courses/new" element={<AdminNewCourse />} />
+        <Route path="/admin/courses/:id" element={<AdminEditCourse />} />
         <Route path="/admin/lessons" element={<AdminLessons />} />
+        <Route path="/admin/lessons/new" element={<AdminNewLesson />} />
+        <Route path="/admin/lessons/:id" element={<AdminEditLesson />} />
         <Route path="/admin/quizzes" element={<AdminQuizzes />} />
+        <Route path="/admin/quizzes/new" element={<AdminNewQuiz />} />
+        <Route path="/admin/quizzes/:id" element={<AdminEditQuiz />} />
         <Route path="/admin/certificates" element={<AdminCertificates />} />
         <Route path="/admin/analytics" element={<AdminAnalytics />} />
         <Route path="/admin/settings" element={<AdminSettings />} />

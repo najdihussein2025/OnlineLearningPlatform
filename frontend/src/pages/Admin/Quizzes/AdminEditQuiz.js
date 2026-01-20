@@ -1,25 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import api from '../../../services/api';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useDashboardToast } from '../../../components/DashboardLayout/DashboardLayout';
-import './InstructorQuizzes.css';
+import api from '../../../services/api';
+import './AdminQuizzes.css';
 
-const EditQuiz = () => {
+const AdminEditQuiz = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { success, error } = useDashboardToast();
 
-  // Form state
-  const [form, setForm] = useState({
+  // Main form state
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [formData, setFormData] = useState({
     title: '',
-    courseId: null,
+    courseId: '',
     lessonId: '',
     passingScore: 70,
-    timeLimit: 10
+    timeLimit: 30
   });
 
-  // Questions
+  // Questions list
   const [questions, setQuestions] = useState([]);
+
+  // New question form state
   const [newQuestion, setNewQuestion] = useState({
     questionText: '',
     questionType: 'multipleChoice',
@@ -29,74 +33,57 @@ const EditQuiz = () => {
     ]
   });
 
-  // UI state
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [showAddQuestion, setShowAddQuestion] = useState(false);
+  // Supporting data
   const [courses, setCourses] = useState([]);
-  const [lessons, setLessons] = useState([]);
 
   useEffect(() => {
-    loadData();
+    loadAllData();
   }, [id]);
 
-  const loadData = async () => {
+  const loadAllData = async () => {
     try {
       setLoading(true);
-      console.log('[Load] Loading quiz ID:', id);
+      console.log('[Load] Starting to load quiz ID:', id);
 
-      // Get quiz
+      // Get courses
+      const coursesRes = await api.get('/courses');
+      const coursesData = Array.isArray(coursesRes.data) ? coursesRes.data : [];
+      setCourses(coursesData);
+      console.log('[Load] Courses loaded:', coursesData.length);
+
+      // Get quiz by ID
       const quizRes = await api.get(`/quizzes/${id}`);
       const quiz = quizRes.data;
-      setForm({
+      setFormData({
         title: quiz.title || '',
-        courseId: quiz.courseId || null,
+        courseId: quiz.courseId || '',
         lessonId: quiz.lessonId || '',
         passingScore: quiz.passingScore || 70,
-        timeLimit: quiz.timeLimit || 10
+        timeLimit: quiz.timeLimit || 30
       });
+      console.log('[Load] Quiz loaded:', quiz.title);
 
-      // Get instructor's courses
-      const coursesRes = await api.get('/courses/mine');
-      setCourses(coursesRes.data || []);
-
-      // Get questions for this quiz
+      // Get all questions and filter for this quiz
       const questionsRes = await api.get('/questions');
       const allQuestions = Array.isArray(questionsRes.data) ? questionsRes.data : [];
       const quizQuestions = allQuestions.filter(q => q.quizId === parseInt(id));
       setQuestions(quizQuestions);
-      console.log('[Load] Loaded', quizQuestions.length, 'questions');
-
-      // Get lessons for the course
-      if (quiz.courseId) {
-        const lessonsRes = await api.get(`/lessons/byCourse/${quiz.courseId}`);
-        setLessons(lessonsRes.data || []);
-      }
+      console.log('[Load] Questions loaded:', quizQuestions.length);
     } catch (err) {
       console.error('[Load] Error:', err);
       error('Failed to load quiz');
+      navigate('/admin/quizzes');
     } finally {
       setLoading(false);
     }
   };
 
-  // Load lessons when course changes
-  useEffect(() => {
-    if (!form.courseId) return;
-    const loadLessons = async () => {
-      try {
-        const res = await api.get(`/lessons/byCourse/${form.courseId}`);
-        setLessons(res.data || []);
-      } catch (err) {
-        console.error('[Lessons] Error:', err);
-      }
-    };
-    loadLessons();
-  }, [form.courseId]);
-
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => ({
+      ...prev,
+      [name]: name === 'passingScore' || name === 'timeLimit' ? parseInt(value) : value
+    }));
   };
 
   const handleQuestionTextChange = (e) => {
@@ -132,22 +119,22 @@ const EditQuiz = () => {
   };
 
   const validateQuestion = () => {
-    console.log('[Validate] Question:', newQuestion);
+    console.log('[Validate] Checking question:', newQuestion);
 
     if (!newQuestion.questionText.trim()) {
-      error('Question text required');
+      error('Question text is required');
       return false;
     }
 
-    const empty = newQuestion.answers.filter(a => !a.answerText.trim());
-    if (empty.length > 0) {
-      error('All answers need text');
+    const emptyAnswers = newQuestion.answers.filter(a => !a.answerText.trim());
+    if (emptyAnswers.length > 0) {
+      error('All answers must have text');
       return false;
     }
 
     const hasCorrect = newQuestion.answers.some(a => a.isCorrect);
     if (!hasCorrect) {
-      error('Mark at least one answer as correct');
+      error('At least one answer must be marked as correct');
       return false;
     }
 
@@ -164,7 +151,7 @@ const EditQuiz = () => {
       setSaving(true);
 
       // Step 1: Create question
-      console.log('[AddQuestion] Creating...');
+      console.log('[AddQuestion] Creating question...');
       const qRes = await api.post('/questions', {
         quizId: parseInt(id),
         questionText: newQuestion.questionText,
@@ -173,10 +160,10 @@ const EditQuiz = () => {
 
       const questionId = qRes.data?.id;
       if (!questionId) {
-        error('No question ID');
+        error('No question ID returned');
         return;
       }
-      console.log('[AddQuestion] Created, ID:', questionId);
+      console.log('[AddQuestion] Question created, ID:', questionId);
 
       // Step 2: Create answers
       console.log('[AddQuestion] Creating answers...');
@@ -189,7 +176,7 @@ const EditQuiz = () => {
       ));
       console.log('[AddQuestion] Answers created');
 
-      // Step 3: Add to local state
+      // Step 3: Add to local state immediately
       const newQ = {
         id: questionId,
         quizId: parseInt(id),
@@ -209,31 +196,30 @@ const EditQuiz = () => {
           { answerText: '', isCorrect: false }
         ]
       });
-      setShowAddQuestion(false);
 
       success('Question added');
       console.log('[AddQuestion] Done');
     } catch (err) {
       console.error('[AddQuestion] Error:', err);
-      error(err.response?.data?.message || 'Failed');
+      error(err.response?.data?.message || 'Failed to add question');
     } finally {
       setSaving(false);
     }
   };
 
   const handleDeleteQuestion = async (questionId) => {
-    if (!window.confirm('Delete?')) return;
+    if (!window.confirm('Delete this question?')) return;
 
     try {
       setSaving(true);
-      console.log('[Delete] Deleting:', questionId);
+      console.log('[DeleteQuestion] Deleting:', questionId);
       await api.delete(`/questions/${questionId}`);
       setQuestions(prev => prev.filter(q => q.id !== questionId));
-      success('Deleted');
-      console.log('[Delete] Done');
+      success('Question deleted');
+      console.log('[DeleteQuestion] Done');
     } catch (err) {
-      console.error('[Delete] Error:', err);
-      error('Failed');
+      console.error('[DeleteQuestion] Error:', err);
+      error('Failed to delete');
     } finally {
       setSaving(false);
     }
@@ -241,21 +227,24 @@ const EditQuiz = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     try {
       setSaving(true);
-      console.log('[Submit] Saving...');
+      console.log('[Submit] Saving quiz...');
+
       await api.put(`/quizzes/${id}`, {
-        title: form.title,
-        courseId: form.courseId ? parseInt(form.courseId) : null,
-        lessonId: form.lessonId || null,
-        passingScore: parseInt(form.passingScore) || 70,
-        timeLimit: parseInt(form.timeLimit) || 10
+        title: formData.title,
+        courseId: formData.courseId ? parseInt(formData.courseId) : null,
+        lessonId: formData.lessonId || null,
+        passingScore: formData.passingScore,
+        timeLimit: formData.timeLimit
       });
-      success('Saved');
-      navigate('/instructor/quizzes');
+
+      success('Quiz saved');
+      navigate('/admin/quizzes');
     } catch (err) {
       console.error('[Submit] Error:', err);
-      error(err.response?.data?.message || 'Failed');
+      error('Failed to save');
     } finally {
       setSaving(false);
     }
@@ -264,31 +253,46 @@ const EditQuiz = () => {
   if (loading) return <div className="loading">Loading...</div>;
 
   return (
-    <div className="instructor-edit-quiz">
-      <h1>Edit Quiz: {form.title}</h1>
+    <div className="admin-edit-quiz">
+      <h1>Edit Quiz: {formData.title}</h1>
 
       <form onSubmit={handleSubmit}>
-        {/* Form Section */}
+        {/* Quiz Form */}
         <div className="form-section">
           <h2>Quiz Info</h2>
-
+          
           <div className="form-group">
             <label>Title</label>
             <input
+              type="text"
               name="title"
-              value={form.title}
+              value={formData.title}
               onChange={handleChange}
             />
+          </div>
+
+          <div className="form-group">
+            <label>Course</label>
+            <select
+              name="courseId"
+              value={formData.courseId}
+              onChange={handleChange}
+            >
+              <option value="">Select...</option>
+              {courses.map(c => (
+                <option key={c.id} value={c.id}>{c.title}</option>
+              ))}
+            </select>
           </div>
 
           <div className="form-row">
             <div className="form-group">
               <label>Passing Score %</label>
               <input
-                name="passingScore"
-                value={form.passingScore}
-                onChange={handleChange}
                 type="number"
+                name="passingScore"
+                value={formData.passingScore}
+                onChange={handleChange}
                 min="0"
                 max="100"
               />
@@ -296,10 +300,10 @@ const EditQuiz = () => {
             <div className="form-group">
               <label>Time Limit (min)</label>
               <input
-                name="timeLimit"
-                value={form.timeLimit}
-                onChange={handleChange}
                 type="number"
+                name="timeLimit"
+                value={formData.timeLimit}
+                onChange={handleChange}
                 min="1"
               />
             </div>
@@ -312,18 +316,8 @@ const EditQuiz = () => {
 
         {/* Questions Section */}
         <div className="form-section">
-          <div className="section-header">
-            <h2>Questions ({questions.length})</h2>
-            <button
-              type="button"
-              className="btn-add-question-top"
-              onClick={() => setShowAddQuestion(!showAddQuestion)}
-            >
-              <div className="btn-icon">{showAddQuestion ? '- Cancel' : '+ Add Question'}</div>
-            </button>
-          </div>
+          <h2>Questions ({questions.length})</h2>
 
-          {/* Questions List */}
           {questions.length > 0 && (
             <div className="questions-list">
               {questions.map((q, idx) => (
@@ -356,84 +350,82 @@ const EditQuiz = () => {
           )}
 
           {/* Add Question Form */}
-          {showAddQuestion && (
-            <div className="add-question-form">
-              <h3>Add New Question</h3>
+          <div className="add-question-form">
+            <h3>Add New Question</h3>
 
-              <div className="form-group">
-                <label>Question Text *</label>
-                <textarea
-                  value={newQuestion.questionText}
-                  onChange={handleQuestionTextChange}
-                  rows="3"
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Type</label>
-                <select
-                  value={newQuestion.questionType}
-                  onChange={(e) => setNewQuestion(p => ({ ...p, questionType: e.target.value }))}
-                >
-                  <option value="multipleChoice">Multiple Choice</option>
-                  <option value="truefalse">True/False</option>
-                </select>
-              </div>
-
-              {/* Answers */}
-              <div className="answers-section">
-                <label>Answers *</label>
-                {newQuestion.answers.map((ans, idx) => (
-                  <div key={idx} className="answer-option">
-                    <input
-                      type="text"
-                      value={ans.answerText}
-                      onChange={(e) => handleAnswerChange(idx, 'answerText', e.target.value)}
-                      placeholder={`Answer ${idx + 1}`}
-                    />
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={ans.isCorrect}
-                        onChange={(e) => handleAnswerChange(idx, 'isCorrect', e.target.checked)}
-                      />
-                      Correct
-                    </label>
-                    {newQuestion.answers.length > 2 && (
-                      <button
-                        type="button"
-                        onClick={() => removeAnswerOption(idx)}
-                        className="btn-small"
-                      >
-                        Remove
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={addAnswerOption}
-              >
-                + Add Answer
-              </button>
-
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={handleAddQuestion}
-                disabled={saving}
-              >
-                {saving ? 'Adding...' : 'Add Question'}
-              </button>
+            <div className="form-group">
+              <label>Question Text *</label>
+              <textarea
+                value={newQuestion.questionText}
+                onChange={handleQuestionTextChange}
+                rows="3"
+              />
             </div>
-          )}
+
+            <div className="form-group">
+              <label>Type</label>
+              <select
+                value={newQuestion.questionType}
+                onChange={(e) => setNewQuestion(p => ({ ...p, questionType: e.target.value }))}
+              >
+                <option value="multipleChoice">Multiple Choice</option>
+                <option value="truefalse">True/False</option>
+              </select>
+            </div>
+
+            {/* Answers */}
+            <div className="answers-section">
+              <label>Answers *</label>
+              {newQuestion.answers.map((ans, idx) => (
+                <div key={idx} className="answer-option">
+                  <input
+                    type="text"
+                    value={ans.answerText}
+                    onChange={(e) => handleAnswerChange(idx, 'answerText', e.target.value)}
+                    placeholder={`Answer ${idx + 1}`}
+                  />
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={ans.isCorrect}
+                      onChange={(e) => handleAnswerChange(idx, 'isCorrect', e.target.checked)}
+                    />
+                    Correct
+                  </label>
+                  {newQuestion.answers.length > 2 && (
+                    <button
+                      type="button"
+                      onClick={() => removeAnswerOption(idx)}
+                      className="btn-small"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={addAnswerOption}
+            >
+              + Add Answer
+            </button>
+
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={handleAddQuestion}
+              disabled={saving}
+            >
+              {saving ? 'Adding...' : 'Add Question'}
+            </button>
+          </div>
         </div>
       </form>
     </div>
   );
 };
 
-export default EditQuiz;
+export default AdminEditQuiz;

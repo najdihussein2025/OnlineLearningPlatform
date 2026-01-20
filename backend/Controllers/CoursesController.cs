@@ -23,7 +23,11 @@ namespace ids.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<CourseResponseDto>>> GetCourses()
         {
-            var courses = await _context.Courses.ToListAsync();
+            var courses = await _context.Courses
+                .Include(c => c.Creator)
+                .Include(c => c.Enrollments)
+                .ToListAsync();
+            
             var dtos = courses.Select(c => new CourseResponseDto
             {
                 Id = c.Id,
@@ -34,8 +38,15 @@ namespace ids.Controllers
                 Difficulty = c.Difficulty,
                 Thumbnail = c.Thumbnail,
                 CreatedBy = c.CreatedBy,
+                Creator = c.Creator != null ? new UserDto 
+                { 
+                    Id = c.Creator.Id,
+                    FullName = c.Creator.FullName,
+                    Email = c.Creator.Email
+                } : null,
                 CreatedAt = c.CreatedAt,
-                IsPublished = c.IsPublished
+                IsPublished = c.IsPublished,
+                EnrollmentCount = c.Enrollments.Count()
             }).ToList();
 
             return Ok(dtos);
@@ -113,6 +124,20 @@ namespace ids.Controllers
             _context.Courses.Add(course);
             await _context.SaveChangesAsync();
 
+            // Log the creation
+            var auditLog = new AuditLog
+            {
+                Action = "Create",
+                EntityType = "Course",
+                EntityId = course.Id,
+                EntityName = course.Title,
+                Description = $"Course '{course.Title}' has been created",
+                UserId = userId,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.AuditLogs.Add(auditLog);
+            await _context.SaveChangesAsync();
+
             var response = new CourseResponseDto
             {
                 Id = course.Id,
@@ -136,6 +161,7 @@ namespace ids.Controllers
             var course = await _context.Courses.FindAsync(id);
             if (course == null) return NotFound();
 
+            var previousTitle = course.Title;
             course.Title = dto.Title ?? course.Title;
             course.ShortDescription = dto.ShortDescription ?? course.ShortDescription;
             course.LongDescription = dto.LongDescription ?? course.LongDescription;
@@ -145,6 +171,28 @@ namespace ids.Controllers
             if (dto.IsPublished.HasValue) course.IsPublished = dto.IsPublished.Value;
 
             await _context.SaveChangesAsync();
+
+            // Log the update
+            var sub = User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub) ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+            int? userId = null;
+            if (int.TryParse(sub, out var parsedId))
+            {
+                userId = parsedId;
+            }
+
+            var auditLog = new AuditLog
+            {
+                Action = "Update",
+                EntityType = "Course",
+                EntityId = course.Id,
+                EntityName = course.Title,
+                Description = $"Course '{previousTitle}' has been updated to '{course.Title}'",
+                UserId = userId,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.AuditLogs.Add(auditLog);
+            await _context.SaveChangesAsync();
+
             return NoContent();
         }
 
@@ -153,6 +201,23 @@ namespace ids.Controllers
         {
             var course = await _context.Courses.FindAsync(id);
             if (course == null) return NotFound();
+
+            // Extract user ID from JWT
+            var sub = User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub) ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+            int.TryParse(sub, out var userId);
+
+            // Log the deletion
+            var auditLog = new AuditLog
+            {
+                Action = "Delete",
+                EntityType = "Course",
+                EntityId = course.Id,
+                EntityName = course.Title,
+                Description = $"Course '{course.Title}' has been deleted",
+                UserId = userId,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.AuditLogs.Add(auditLog);
 
             _context.Courses.Remove(course);
             await _context.SaveChangesAsync();

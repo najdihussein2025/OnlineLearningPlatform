@@ -83,7 +83,7 @@ namespace ids.Services
                             // Has successfully completed
                             column.Item()
                                 .AlignCenter()
-                                .Text("has successfully completed")
+                                .Text("has successfully completed the course")
                                 .FontSize(14)
                                 .FontFamily("Times New Roman")
                                 .FontColor(Colors.Grey.Darken1);
@@ -98,6 +98,17 @@ namespace ids.Services
                                 .FontFamily("Times New Roman")
                                 .Bold()
                                 .FontColor(Colors.Blue.Darken2);
+
+                            column.Item().Height(15);
+
+                            // Congratulations Message
+                            column.Item()
+                                .AlignCenter()
+                                .Text("Congratulations!")
+                                .FontSize(18)
+                                .FontFamily("Times New Roman")
+                                .Bold()
+                                .FontColor(Colors.Green.Darken1);
 
                             column.Item().Height(30);
 

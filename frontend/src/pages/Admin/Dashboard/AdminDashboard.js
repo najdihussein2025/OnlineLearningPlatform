@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import StatCard from '../../../components/admin/StatCard/StatCard';
 import DataTable from '../../../components/admin/DataTable/DataTable';
 import api from '../../../services/api';
 import './AdminDashboard.css';
 
 const AdminDashboard = () => {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [stats, setStats] = useState({
     totalUsers: 0,
@@ -116,14 +118,25 @@ const AdminDashboard = () => {
 
         setQuizPerformance(coursePerformance);
 
-        // Generate dynamic recent activity
-        const activities = [
-          { id: 1, type: 'user', action: `${users.length} total users registered`, time: getTimeAgo(new Date(Date.now() - 3600000)), user: 'System' },
-          { id: 2, type: 'course', action: `${courses.length} courses available`, time: getTimeAgo(new Date(Date.now() - 7200000)), user: 'System' },
-          { id: 3, type: 'quiz', action: `${attempts.length} quiz attempts recorded`, time: getTimeAgo(new Date(Date.now() - 10800000)), user: 'System' },
-          { id: 4, type: 'instructor', action: `${enrollments.length} active enrollments`, time: getTimeAgo(new Date(Date.now() - 14400000)), user: 'System' }
-        ];
-        setRecentActivityData(activities);
+        // Fetch audit logs for recent activities
+        try {
+          const auditLogsRes = await api.get('/auditlogs?limit=10');
+          const auditLogs = auditLogsRes.data || [];
+          
+          const activities = auditLogs.map(log => ({
+            id: `audit-${log.id}`,
+            type: log.entityType.toLowerCase(),
+            action: `[${log.action}] ${log.entityType}: ${log.description}`,
+            time: getTimeAgo(new Date(log.createdAt)),
+            user: log.userName || 'System',
+            entityName: log.entityName
+          }));
+
+          setRecentActivityData(activities);
+        } catch (error) {
+          console.error('Error fetching audit logs:', error);
+          setRecentActivityData([]);
+        }
 
       } catch (error) {
         console.error('Error fetching analytics data:', error);
@@ -191,6 +204,12 @@ const AdminDashboard = () => {
         </svg>
       ),
     },
+  ];
+
+  const activityColumns = [
+    { key: 'action', header: 'Activity' },
+    { key: 'user', header: 'User' },
+    { key: 'time', header: 'Time', align: 'right' },
   ];
 
   const recentActivity = searchQuery
@@ -378,10 +397,15 @@ const AdminDashboard = () => {
         <div className="recent-activity-section">
           <div className="section-header-row">
             <h2 className="section-title">Recent Activity</h2>
-            <button className="btn-view-all">View All</button>
+            <button 
+              className="btn-view-all"
+              onClick={() => navigate('/admin/activity-log')}
+            >
+              View All
+            </button>
           </div>
           <DataTable
-            columns={recentActivityData}
+            columns={activityColumns}
             data={recentActivity}
             emptyMessage="No recent activity"
           />

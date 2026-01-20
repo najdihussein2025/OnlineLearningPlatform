@@ -109,6 +109,20 @@ namespace ids.Controllers
             _context.Lessons.Add(lesson);
             await _context.SaveChangesAsync();
 
+            // Log the creation
+            var auditLog = new AuditLog
+            {
+                Action = "Create",
+                EntityType = "Lesson",
+                EntityId = lesson.Id,
+                EntityName = lesson.Title,
+                Description = $"Lesson '{lesson.Title}' has been created",
+                UserId = userId,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.AuditLogs.Add(auditLog);
+            await _context.SaveChangesAsync();
+
             var response = new LessonResponseDto
             {
                 Id = lesson.Id,
@@ -137,6 +151,7 @@ namespace ids.Controllers
             if (course == null) return NotFound(new { message = "Course not found" });
             if (course.CreatedBy != userId) return Forbid();
 
+            var previousTitle = lesson.Title;
             lesson.Title = dto.Title ?? lesson.Title;
             lesson.Content = dto.Content ?? lesson.Content;
             lesson.VideoUrl = dto.VideoUrl ?? lesson.VideoUrl;
@@ -144,6 +159,21 @@ namespace ids.Controllers
             lesson.EstimatedDuration = dto.EstimatedDuration ?? lesson.EstimatedDuration;
 
             await _context.SaveChangesAsync();
+
+            // Log the update
+            var auditLog = new AuditLog
+            {
+                Action = "Update",
+                EntityType = "Lesson",
+                EntityId = lesson.Id,
+                EntityName = lesson.Title,
+                Description = $"Lesson '{previousTitle}' has been updated to '{lesson.Title}'",
+                UserId = userId,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.AuditLogs.Add(auditLog);
+            await _context.SaveChangesAsync();
+
             return NoContent();
         }
 
@@ -158,7 +188,22 @@ namespace ids.Controllers
             var sub = User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub) ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (!int.TryParse(sub, out var userId)) return Unauthorized();
             if (course == null) return NotFound(new { message = "Course not found" });
-            if (course.CreatedBy != userId) return Forbid();
+            
+            var isAdmin = User.IsInRole("Admin");
+            if (!isAdmin && course.CreatedBy != userId) return Forbid();
+
+            // Log the deletion
+            var auditLog = new AuditLog
+            {
+                Action = "Delete",
+                EntityType = "Lesson",
+                EntityId = lesson.Id,
+                EntityName = lesson.Title,
+                Description = $"Lesson '{lesson.Title}' has been deleted",
+                UserId = userId,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.AuditLogs.Add(auditLog);
 
             _context.Lessons.Remove(lesson);
             await _context.SaveChangesAsync();

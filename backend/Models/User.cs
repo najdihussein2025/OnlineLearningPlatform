@@ -9,6 +9,7 @@ namespace ids.Models
         public string Email { get; set; }
         public string HashedPassword { get; set; }
         public string Role { get; set; }
+        public string Status { get; set; } = "active"; // active, inactive, pending
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 }

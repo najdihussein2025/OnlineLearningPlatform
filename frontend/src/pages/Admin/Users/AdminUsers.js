@@ -23,14 +23,18 @@ const AdminUsers = () => {
     try {
       setLoading(true);
       const response = await api.get('/users');
-      const usersData = response.data || [];
+      console.log('API Response:', response);
+      console.log('API Response Data:', response.data);
+      
+      const usersData = Array.isArray(response.data) ? response.data : response.data?.data || [];
+      console.log('Processed Users Data:', usersData);
       
       // Map API data to table format
       const formattedUsers = usersData.map(user => ({
         id: user.id,
         name: user.fullName || user.name || 'Unknown',
         email: user.email || 'No email',
-        role: user.role || 'student',
+        role: (user.role || 'student').toLowerCase(),
         status: user.status || 'active',
         joined: user.createdAt 
           ? new Date(user.createdAt).toLocaleDateString('en-US', { 
@@ -41,6 +45,7 @@ const AdminUsers = () => {
           : 'Not set'
       }));
       
+      console.log('Formatted Users:', formattedUsers);
       setUsers(formattedUsers);
     } catch (err) {
       console.error('Error fetching users:', err);
@@ -63,17 +68,20 @@ const AdminUsers = () => {
 
   const handleApprove = async (userId) => {
     try {
+      console.log('Approving instructor:', userId);
       await api.put(`/users/${userId}`, { status: 'active' });
       setUsers(users.map(u => u.id === userId ? { ...u, status: 'active' } : u));
-      success(`User ${userId} approved successfully`);
+      success('Instructor approved successfully!');
     } catch (err) {
-      console.error('Error approving user:', err);
-      error('Failed to approve user');
+      console.error('Error approving instructor:', err);
+      console.error('Error details:', err.response?.data);
+      error('Failed to approve instructor: ' + (err.response?.data?.message || err.message));
     }
   };
 
   const handleDisable = (userId) => {
     const user = users.find(u => u.id === userId);
+    console.log('handleDisable called for userId:', userId, 'user:', user);
     setConfirmDialog({ 
       isOpen: true, 
       action: 'disable', 
@@ -87,12 +95,17 @@ const AdminUsers = () => {
       try {
         const user = users.find(u => u.id === confirmDialog.userId);
         const newStatus = user?.status === 'active' ? 'inactive' : 'active';
-        await api.put(`/users/${confirmDialog.userId}`, { status: newStatus });
+        console.log('Updating user', confirmDialog.userId, 'to status:', newStatus);
+        
+        const response = await api.put(`/users/${confirmDialog.userId}`, { status: newStatus });
+        console.log('Update response:', response);
+        
         setUsers(users.map(u => u.id === confirmDialog.userId ? { ...u, status: newStatus } : u));
         success(`User status updated to ${newStatus}`);
       } catch (err) {
         console.error('Error updating user status:', err);
-        error('Failed to update user status');
+        console.error('Error details:', err.response?.data);
+        error('Failed to update user status: ' + (err.response?.data?.message || err.message));
       }
     }
     setConfirmDialog({ isOpen: false, action: null, userId: null });
@@ -134,12 +147,13 @@ const AdminUsers = () => {
       {row.status === 'pending' && row.role === 'instructor' && (
         <button
           className="btn-action btn-approve"
+          title="Approve this instructor"
           onClick={(e) => {
             e.stopPropagation();
             handleApprove(row.id);
           }}
         >
-          Approve
+          Approve Instructor
         </button>
       )}
       <button

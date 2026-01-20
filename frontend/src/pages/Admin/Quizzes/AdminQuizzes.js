@@ -1,34 +1,63 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import DataTable from '../../../components/admin/DataTable/DataTable';
-import StatCard from '../../../components/admin/StatCard/StatCard';
+import ConfirmationDialog from '../../../components/ConfirmationDialog/ConfirmationDialog';
+import { useDashboardToast } from '../../../components/DashboardLayout/DashboardLayout';
+import api from '../../../services/api';
 import './AdminQuizzes.css';
 
 const AdminQuizzes = () => {
+  const navigate = useNavigate();
+  const { success, error } = useDashboardToast();
   const [searchQuery, setSearchQuery] = useState('');
+  const [quizzes, setQuizzes] = useState([]);
+  const [courses, setCourses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, action: null, quizId: null });
 
-  // Mock quizzes data
-  const quizzes = [
-    { id: 1, title: 'JavaScript Basics Quiz', course: 'Web Development Bootcamp', questions: 10, passingScore: 70, timeLimit: 30, attempts: 245 },
-    { id: 2, title: 'Python Fundamentals', course: 'Data Science with Python', questions: 15, passingScore: 75, timeLimit: 45, attempts: 180 },
-    { id: 3, title: 'CSS Layout Quiz', course: 'Web Development Bootcamp', questions: 8, passingScore: 65, timeLimit: 20, attempts: 320 },
-    { id: 4, title: 'Data Analysis Quiz', course: 'Data Science with Python', questions: 12, passingScore: 80, timeLimit: 40, attempts: 95 },
-  ];
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [quizzesRes, coursesRes] = await Promise.all([
+        api.get('/quizzes'),
+        api.get('/courses')
+      ]);
+
+      const quizzesData = Array.isArray(quizzesRes.data) ? quizzesRes.data : quizzesRes.data?.data || [];
+      const coursesData = Array.isArray(coursesRes.data) ? coursesRes.data : coursesRes.data?.data || [];
+      
+      setQuizzes(quizzesData);
+      setCourses(coursesData);
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      error('Failed to load quizzes');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getCourseTitle = (courseId) => {
+    const course = courses.find(c => c.id === courseId);
+    return course?.title || 'Unknown Course';
+  };
 
   const filteredQuizzes = searchQuery
     ? quizzes.filter(quiz => 
         quiz.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        quiz.course.toLowerCase().includes(searchQuery.toLowerCase())
+        getCourseTitle(quiz.courseId).toLowerCase().includes(searchQuery.toLowerCase())
       )
     : quizzes;
 
   const columns = [
     { key: 'title', header: 'Quiz Title' },
-    { key: 'course', header: 'Course' },
     {
-      key: 'questions',
-      header: 'Questions',
-      align: 'center',
-      render: (value) => <strong>{value}</strong>,
+      key: 'courseId',
+      header: 'Course',
+      render: (value) => getCourseTitle(value),
     },
     {
       key: 'passingScore',
@@ -42,54 +71,101 @@ const AdminQuizzes = () => {
       align: 'center',
       render: (value) => <span>{value} min</span>,
     },
-    {
-      key: 'attempts',
-      header: 'Attempts',
-      align: 'center',
-      render: (value) => <strong>{value}</strong>,
-    },
   ];
 
   const actions = (row) => (
     <>
-      <button className="btn-action btn-edit">Edit</button>
-      <button className="btn-action btn-preview">Preview</button>
-      <button className="btn-action btn-stats">Stats</button>
+      <button className="btn-action btn-edit" onClick={() => handleEdit(row.id)}>Edit</button>
+      <button className="btn-action btn-delete" onClick={() => handleDelete(row.id)}>Delete</button>
     </>
   );
 
+  const handleEdit = (quizId) => {
+    navigate(`/admin/quizzes/${quizId}`);
+  };
+
+  const handleDelete = (quizId) => {
+    setConfirmDialog({
+      isOpen: true,
+      action: 'delete',
+      quizId,
+      message: 'Are you sure you want to delete this quiz? This action cannot be undone.'
+    });
+  };
+
+  const handleCreate = () => {
+    navigate('/admin/quizzes/new');
+  };
+
+  const confirmAction = async () => {
+    if (confirmDialog.action === 'delete') {
+      try {
+        await api.delete(`/quizzes/${confirmDialog.quizId}`);
+        success('Quiz deleted successfully');
+        await fetchData();
+      } catch (err) {
+        error('Failed to delete quiz');
+        console.error('Delete error:', err);
+      }
+    }
+    setConfirmDialog({ isOpen: false, action: null, quizId: null });
+  };
+
   return (
     <div className="admin-quizzes-page">
-        <div className="page-header">
-          <div>
-            <h1 className="page-title">Quiz Management</h1>
-            <p className="page-subtitle">Create and manage quizzes</p>
-          </div>
-          <button className="btn-primary">Create New Quiz</button>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Quiz Management</h1>
+          <p className="page-subtitle">Create and manage quizzes</p>
         </div>
+        <button className="btn-primary" onClick={handleCreate}>Create New Quiz</button>
+      </div>
 
+      {!loading && (
         <div className="quizzes-stats">
           <div className="quiz-stat-card">
             <div className="quiz-stat-value">{quizzes.length}</div>
             <div className="quiz-stat-label">Total Quizzes</div>
           </div>
           <div className="quiz-stat-card">
-            <div className="quiz-stat-value">{quizzes.reduce((sum, q) => sum + q.questions, 0)}</div>
+            <div className="quiz-stat-value">{quizzes.reduce((sum, q) => sum + (q.questions || 0), 0)}</div>
             <div className="quiz-stat-label">Total Questions</div>
           </div>
-          <div className="quiz-stat-card">
-            <div className="quiz-stat-value">{quizzes.reduce((sum, q) => sum + q.attempts, 0)}</div>
-            <div className="quiz-stat-label">Total Attempts</div>
-          </div>
         </div>
+      )}
 
+      <div className="search-section">
+        <input
+          type="text"
+          placeholder="Search quizzes by title or course..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="search-input"
+        />
+      </div>
+
+      {loading ? (
+        <div className="loading-message">Loading quizzes...</div>
+      ) : (
         <DataTable
           columns={columns}
           data={filteredQuizzes}
           actions={actions}
           emptyMessage="No quizzes found"
         />
-      </div>
+      )}
+
+      <ConfirmationDialog
+        isOpen={confirmDialog.isOpen}
+        onClose={() => setConfirmDialog({ isOpen: false, action: null, quizId: null })}
+        onConfirm={confirmAction}
+        title="Confirm Delete"
+        message={confirmDialog.message || 'Are you sure you want to delete this quiz?'}
+        confirmText="Delete"
+        cancelText="Cancel"
+        type="danger"
+      />
+    </div>
   );
 };
 

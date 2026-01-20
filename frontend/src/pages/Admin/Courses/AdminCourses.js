@@ -1,23 +1,52 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import DataTable from '../../../components/admin/DataTable/DataTable';
 import { useDashboardToast } from '../../../components/DashboardLayout/DashboardLayout';
 import ConfirmationDialog from '../../../components/ConfirmationDialog/ConfirmationDialog';
+import api from '../../../services/api';
 import './AdminCourses.css';
 
 const AdminCourses = () => {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, action: null, courseId: null });
-  const { success, error, info } = useDashboardToast();
+  const [courses, setCourses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const { success, error } = useDashboardToast();
 
-  // Mock courses data
-  const courses = [
-    { id: 1, title: 'Complete Web Development Bootcamp', category: 'Web Development', difficulty: 'Beginner', instructor: 'Sarah Johnson', enrollments: 120, status: 'published' },
-    { id: 2, title: 'Advanced Data Science with Python', category: 'Data Science', difficulty: 'Advanced', instructor: 'Dr. Michael Chen', enrollments: 85, status: 'published' },
-    { id: 3, title: 'UI/UX Design Fundamentals', category: 'Design', difficulty: 'Beginner', instructor: 'Emily Rodriguez', enrollments: 40, status: 'draft' },
-    { id: 4, title: 'Business Strategy & Leadership', category: 'Business', difficulty: 'Intermediate', instructor: 'James Anderson', enrollments: 65, status: 'published' },
-    { id: 5, title: 'Full-Stack JavaScript Development', category: 'Programming', difficulty: 'Intermediate', instructor: 'Alex Thompson', enrollments: 95, status: 'published' },
-  ];
+  useEffect(() => {
+    fetchCourses();
+  }, []);
+
+  const fetchCourses = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get('/courses');
+      console.log('Courses API Response:', response.data);
+      
+      const coursesData = Array.isArray(response.data) ? response.data : response.data?.data || [];
+      
+      // Format courses data
+      const formattedCourses = coursesData.map(course => ({
+        id: course.id,
+        title: course.title || 'Untitled Course',
+        category: course.category || 'General',
+        difficulty: course.difficulty || 'Beginner',
+        instructor: course.creator?.fullName || course.creatorName || 'Unknown',
+        enrollments: course.enrollmentCount || 0,
+        status: course.isPublished ? 'published' : 'draft'
+      }));
+      
+      console.log('Formatted Courses:', formattedCourses);
+      setCourses(formattedCourses);
+    } catch (err) {
+      console.error('Error fetching courses:', err);
+      error('Failed to load courses');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredCourses = useMemo(() => {
     return courses.filter(course => {
@@ -29,18 +58,42 @@ const AdminCourses = () => {
     });
   }, [searchQuery, statusFilter]);
 
-  const handlePublish = (courseId) => {
-    const course = courses.find(c => c.id === courseId);
-    const action = course?.status === 'published' ? 'unpublished' : 'published';
-    success(`Course ${action} successfully`);
+  const handlePublish = async (courseId) => {
+    try {
+      const course = courses.find(c => c.id === courseId);
+      const newPublishStatus = course?.status === 'published' ? false : true;
+      
+      console.log('Publishing course:', courseId, 'to:', newPublishStatus);
+      const fullCourses = await api.get('/courses');
+      const fullCourse = (Array.isArray(fullCourses.data) ? fullCourses.data : fullCourses.data?.data || []).find(c => c.id === courseId);
+      
+      await api.put(`/courses/${courseId}`, { 
+        title: fullCourse.title,
+        shortDescription: fullCourse.shortDescription,
+        longDescription: fullCourse.longDescription,
+        category: fullCourse.category,
+        difficulty: fullCourse.difficulty,
+        thumbnail: fullCourse.thumbnail,
+        isPublished: newPublishStatus 
+      });
+      
+      setCourses(courses.map(c => 
+        c.id === courseId ? { ...c, status: newPublishStatus ? 'published' : 'draft' } : c
+      ));
+      
+      success(`Course ${newPublishStatus ? 'published' : 'unpublished'} successfully`);
+    } catch (err) {
+      console.error('Error publishing course:', err);
+      error('Failed to update course: ' + (err.response?.data?.message || err.message));
+    }
   };
 
   const handleEdit = (courseId) => {
-    info('Edit course feature coming soon');
+    navigate(`/admin/courses/${courseId}`);
   };
 
   const handleCreate = () => {
-    info('Create course feature coming soon');
+    navigate('/admin/courses/new');
   };
 
   const handleDelete = (courseId) => {
@@ -52,9 +105,17 @@ const AdminCourses = () => {
     });
   };
 
-  const confirmAction = () => {
+  const confirmAction = async () => {
     if (confirmDialog.action === 'delete') {
-      success(`Course ${confirmDialog.courseId} deleted successfully`);
+      try {
+        console.log('Deleting course:', confirmDialog.courseId);
+        await api.delete(`/courses/${confirmDialog.courseId}`);
+        setCourses(courses.filter(c => c.id !== confirmDialog.courseId));
+        success('Course deleted successfully');
+      } catch (err) {
+        console.error('Error deleting course:', err);
+        error('Failed to delete course: ' + (err.response?.data?.message || err.message));
+      }
     }
     setConfirmDialog({ isOpen: false, action: null, courseId: null });
   };
@@ -112,6 +173,15 @@ const AdminCourses = () => {
         }}
       >
         {row.status === 'published' ? 'Unpublish' : 'Publish'}
+      </button>
+      <button
+        className="btn-action btn-delete"
+        onClick={(e) => {
+          e.stopPropagation();
+          handleDelete(row.id);
+        }}
+      >
+        Delete
       </button>
     </>
   );

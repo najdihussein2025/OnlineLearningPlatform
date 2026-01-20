@@ -23,6 +23,7 @@ namespace ids.Data
         public DbSet<Enrollment> Enrollments { get; set; }
         public DbSet<Attachment> Attachments { get; set; }
         public DbSet<Review> Reviews { get; set; }
+        public DbSet<AuditLog> AuditLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

@@ -30,20 +30,34 @@ namespace ids.Data
                         FullName = s.FullName,
                         Email = s.Email,
                         HashedPassword = PasswordHasher.Hash(s.Password),
-                        Role = s.Role
+                        Role = s.Role,
+                        Status = "active"
                     };
                     context.Users.Add(user);
                     System.Console.WriteLine($"Seed: created user {s.Email}");
                 }
                 else
                 {
-                    // Update existing user's password/role/fullname to match seed (useful during dev)
+                    // Update existing user's password/role/fullname/status to match seed (useful during dev)
                     user.HashedPassword = PasswordHasher.Hash(s.Password);
                     user.Role = s.Role;
                     user.FullName = s.FullName;
+                    user.Status = "active";
                     context.Users.Update(user);
                     System.Console.WriteLine($"Seed: updated user {s.Email}");
                 }
+            }
+
+            // Ensure all users have a status value
+            var usersWithoutStatus = await context.Users.Where(u => string.IsNullOrEmpty(u.Status)).ToListAsync();
+            foreach (var user in usersWithoutStatus)
+            {
+                user.Status = "active";
+                context.Users.Update(user);
+            }
+            if (usersWithoutStatus.Count > 0)
+            {
+                System.Console.WriteLine($"Seed: updated {usersWithoutStatus.Count} users with missing status");
             }
 
             await context.SaveChangesAsync();

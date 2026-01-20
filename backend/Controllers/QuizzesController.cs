@@ -91,7 +91,29 @@ namespace ids.Controllers
                 TimeLimit = dto.TimeLimit
             };
 
+            // Extract user ID from JWT for audit logging
+            var sub = User.FindFirstValue(JwtRegisteredClaimNames.Sub) ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+            int? userId = null;
+            if (int.TryParse(sub, out var parsedId))
+            {
+                userId = parsedId;
+            }
+
             _context.Quizzes.Add(quiz);
+            await _context.SaveChangesAsync();
+
+            // Log the creation
+            var auditLog = new AuditLog
+            {
+                Action = "Create",
+                EntityType = "Quiz",
+                EntityId = quiz.Id,
+                EntityName = quiz.Title,
+                Description = $"Quiz '{quiz.Title}' has been created",
+                UserId = userId,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.AuditLogs.Add(auditLog);
             await _context.SaveChangesAsync();
 
             var response = new QuizResponseDto
@@ -113,11 +135,36 @@ namespace ids.Controllers
             var quiz = await _context.Quizzes.FindAsync(id);
             if (quiz == null) return NotFound();
 
+            var previousTitle = quiz.Title;
+            
             quiz.Title = dto.Title ?? quiz.Title;
             if (dto.PassingScore.HasValue) quiz.PassingScore = dto.PassingScore.Value;
             if (dto.TimeLimit.HasValue) quiz.TimeLimit = dto.TimeLimit.Value;
 
+            // Extract user ID from JWT for audit logging
+            var sub = User.FindFirstValue(JwtRegisteredClaimNames.Sub) ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+            int? userId = null;
+            if (int.TryParse(sub, out var parsedId))
+            {
+                userId = parsedId;
+            }
+
             await _context.SaveChangesAsync();
+
+            // Log the update
+            var auditLog = new AuditLog
+            {
+                Action = "Update",
+                EntityType = "Quiz",
+                EntityId = quiz.Id,
+                EntityName = quiz.Title,
+                Description = $"Quiz '{previousTitle}' has been updated to '{quiz.Title}'",
+                UserId = userId,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.AuditLogs.Add(auditLog);
+            await _context.SaveChangesAsync();
+
             return NoContent();
         }
 
@@ -127,7 +174,27 @@ namespace ids.Controllers
             var quiz = await _context.Quizzes.FindAsync(id);
             if (quiz == null) return NotFound();
 
+            // Log the deletion
+            var sub = User.FindFirstValue(JwtRegisteredClaimNames.Sub) ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+            int? userId = null;
+            if (int.TryParse(sub, out var parsedId))
+            {
+                userId = parsedId;
+            }
+
+            var auditLog = new AuditLog
+            {
+                Action = "Delete",
+                EntityType = "Quiz",
+                EntityId = quiz.Id,
+                EntityName = quiz.Title,
+                Description = $"Quiz '{quiz.Title}' has been deleted",
+                UserId = userId,
+                CreatedAt = DateTime.UtcNow
+            };
+
             _context.Quizzes.Remove(quiz);
+            _context.AuditLogs.Add(auditLog);
             await _context.SaveChangesAsync();
             return Ok(new { message = "Quiz deleted successfully" });
         }
