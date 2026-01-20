@@ -93,6 +93,14 @@ const Navbar = () => {
               >
                 Dashboard
               </Link>
+              {role === 'admin' && (
+                <Link 
+                  to="/admin/activity-log" 
+                  className="navbar-link"
+                >
+                  Activity Log
+                </Link>
+              )}
               <span className="navbar-user">Welcome, {user?.firstName || user?.email}</span>
               <button onClick={handleLogout} className="btn-navbar btn-navbar-outline">
                 Logout
