@@ -78,8 +78,14 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 
+// Register HTTP Client Factory for external API calls
+builder.Services.AddHttpClient();
+
 // Register PDF service for certificate generation
 builder.Services.AddScoped<CertificatePdfService>();
+
+// Register Gemini service for chatbot
+builder.Services.AddScoped<GeminiService>();
 
 
 builder.Services.AddCors(options =>

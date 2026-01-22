@@ -290,5 +290,46 @@ namespace ids.Controllers
                 return StatusCode(500, new { message = "Error deleting course" });
             }
         }
+
+        [Authorize]
+        [HttpGet("available-for-enrollment")]
+        public async Task<IActionResult> GetAvailableCourses()
+        {
+            try
+            {
+                var sub = User.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub) ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (!int.TryParse(sub, out var userId)) return Unauthorized();
+
+                var courses = await _context.Courses
+                    .Include(c => c.Lessons)
+                    .Where(c => c.IsPublished &&
+                           !_context.Enrollments
+                                .Any(e => e.CourseId == c.Id && e.UserId == userId))
+                    .ToListAsync();
+
+                var dtos = courses.Select(c => new
+                {
+                    Id = c.Id,
+                    Title = c.Title,
+                    ShortDescription = c.ShortDescription,
+                    LongDescription = c.LongDescription,
+                    Category = c.Category,
+                    Difficulty = c.Difficulty,
+                    Thumbnail = c.Thumbnail,
+                    CreatedBy = c.CreatedBy,
+                    CreatedAt = c.CreatedAt,
+                    IsPublished = c.IsPublished,
+                    EnrollmentCount = c.Enrollments?.Count() ?? 0,
+                    LessonsCount = c.Lessons?.Count() ?? 0
+                }).ToList();
+
+                return Ok(dtos);
+            }
+            catch (Exception ex)
+            {
+                ErrorLogger.Log(ex, _env);
+                return StatusCode(500, new { message = "Error retrieving available courses" });
+            }
+        }
     }
 }

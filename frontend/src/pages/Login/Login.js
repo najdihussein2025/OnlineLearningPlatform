@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import Button from '../../components/Button/Button';
-import { seedAccounts, getSeededAccounts } from '../../utils/seedAccounts';
 import './Login.css';
 
 const Login = () => {
@@ -13,17 +12,8 @@ const Login = () => {
   const [errors, setErrors] = useState({});
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showSeedInfo, setShowSeedInfo] = useState(false);
   const navigate = useNavigate();
   const { login } = useAuth();
-
-  useEffect(() => {
-    // Seed accounts on component mount (only once)
-    if (!getSeededAccounts()) {
-      seedAccounts();
-    }
-    setShowSeedInfo(true);
-  }, []);
 
   const validateForm = () => {
     const newErrors = {};
@@ -58,7 +48,7 @@ const Login = () => {
     setError('');
   };
 
-  const handleSubmit = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
 
@@ -111,88 +101,15 @@ const Login = () => {
     }
   };
 
-  const handleQuickLogin = (email, password, roleHint) => {
-    setFormData({ email, password });
-    // Auto-submit after a brief delay
-    setTimeout(async () => {
-      const result = await login(email, password);
-      if (result.success) {
-        // Extract role from backend response - normalize to lowercase
-        let role = 'student'; // default
-        
-        if (result.data?.user?.role) {
-          role = result.data.user.role.toLowerCase();
-        } else if (roleHint) {
-          role = roleHint.toLowerCase();
-        }
-        
-        localStorage.setItem('role', role);
-        
-        if (role === 'student') {
-          navigate('/student/dashboard');
-        } else if (role === 'instructor') {
-          navigate('/instructor/dashboard');
-        } else if (role === 'admin') {
-          navigate('/admin/dashboard');
-        } else {
-          // Default fallback to student dashboard
-          navigate('/student/dashboard');
-        }
-      }
-    }, 100);
-  };
-
   const isFormValid = formData.email.trim() && formData.password && Object.keys(errors).length === 0;
-
-  const seededAccounts = getSeededAccounts();
 
   return (
     <div className="login">
       <div className="login-container">
         <h2>Login</h2>
         
-        {/* Seed Accounts Info */}
-        {showSeedInfo && seededAccounts && (
-          <div className="seed-accounts-info">
-            <h3>Test Accounts (Click to login):</h3>
-            <div className="seed-accounts-list">
-              {seededAccounts.map((account, index) => (
-                <button
-                  key={index}
-                  type="button"
-                  className="seed-account-btn"
-                  onClick={() => handleQuickLogin(account.email, account.password, account.role)}
-                >
-                  <div className="seed-account-info">
-                    <strong>{account.role.toUpperCase()}</strong>
-                    <span>{account.email}</span>
-                    <small>Password: {account.password}</small>
-                  </div>
-                </button>
-              ))}
-            </div>
-            <button 
-              type="button"
-              className="hide-seed-info"
-              onClick={() => setShowSeedInfo(false)}
-            >
-              Hide
-            </button>
-          </div>
-        )}
-
-        {!showSeedInfo && (
-          <button 
-            type="button"
-            className="show-seed-info"
-            onClick={() => setShowSeedInfo(true)}
-          >
-            Show Test Accounts
-          </button>
-        )}
-
         {error && <div className="error-message">{error}</div>}
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleLogin}>
           <div className="form-group">
             <label htmlFor="email">Email <span className="required">*</span></label>
             <input
@@ -202,7 +119,7 @@ const Login = () => {
               value={formData.email}
               onChange={handleChange}
               className={errors.email ? 'input-error' : ''}
-              placeholder="student@test.com"
+              placeholder="Enter your email"
               required
             />
             {errors.email && <span className="error-message">{errors.email}</span>}
@@ -216,7 +133,7 @@ const Login = () => {
               value={formData.password}
               onChange={handleChange}
               className={errors.password ? 'input-error' : ''}
-              placeholder="password123"
+              placeholder="Enter your password"
               required
             />
             {errors.password && <span className="error-message">{errors.password}</span>}

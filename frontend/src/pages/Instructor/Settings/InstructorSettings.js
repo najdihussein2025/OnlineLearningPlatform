@@ -16,9 +16,6 @@ const InstructorSettings = () => {
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
-    emailNotifications: true,
-    courseNotifications: true,
-    studentNotifications: true,
   });
 
   useEffect(() => {
@@ -65,12 +62,6 @@ const InstructorSettings = () => {
           currentPassword: '',
           newPassword: '',
           confirmPassword: '',
-        }));
-      } else if (section === 'notifications') {
-        localStorage.setItem('notificationPrefs', JSON.stringify({
-          emailNotifications: formData.emailNotifications,
-          courseNotifications: formData.courseNotifications,
-          studentNotifications: formData.studentNotifications,
         }));
       }
       setShowSuccess(true);
@@ -217,63 +208,6 @@ const InstructorSettings = () => {
             <div className="form-actions">
               <button className="btn-primary" onClick={() => handleSave('password')}>
                 Update Password
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Notification Preferences */}
-        <div className="settings-section">
-          <h2 className="settings-section-title">Notification Preferences</h2>
-          <div className="settings-form">
-            <div className="setting-item">
-              <div className="setting-info">
-                <h3 className="setting-label">Email Notifications</h3>
-                <p className="setting-description">Receive email notifications for important updates</p>
-              </div>
-              <label className="toggle-switch">
-                <input
-                  type="checkbox"
-                  name="emailNotifications"
-                  checked={formData.emailNotifications}
-                  onChange={handleInputChange}
-                />
-                <span className="toggle-slider"></span>
-              </label>
-            </div>
-            <div className="setting-item">
-              <div className="setting-info">
-                <h3 className="setting-label">Course Notifications</h3>
-                <p className="setting-description">Get notified when students enroll in your courses</p>
-              </div>
-              <label className="toggle-switch">
-                <input
-                  type="checkbox"
-                  name="courseNotifications"
-                  checked={formData.courseNotifications}
-                  onChange={handleInputChange}
-                />
-                <span className="toggle-slider"></span>
-              </label>
-            </div>
-            <div className="setting-item">
-              <div className="setting-info">
-                <h3 className="setting-label">Student Activity</h3>
-                <p className="setting-description">Receive notifications about student progress and quiz completions</p>
-              </div>
-              <label className="toggle-switch">
-                <input
-                  type="checkbox"
-                  name="studentNotifications"
-                  checked={formData.studentNotifications}
-                  onChange={handleInputChange}
-                />
-                <span className="toggle-slider"></span>
-              </label>
-            </div>
-            <div className="form-actions">
-              <button className="btn-primary" onClick={() => handleSave('notifications')}>
-                Save Preferences
               </button>
             </div>
           </div>

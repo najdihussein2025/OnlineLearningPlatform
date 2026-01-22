@@ -1,10 +1,11 @@
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { authService } from '../../services/authService';
 
 const ProtectedRoute = ({ children, requiredRole }) => {
   const { isAuthenticated, loading, role } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -20,11 +21,15 @@ const ProtectedRoute = ({ children, requiredRole }) => {
   }
 
   // Double-check authentication with token
-  const hasToken = !!authService.getToken();
+  const token = authService.getToken();
+  const hasToken = !!token;
   const hasUser = !!authService.getCurrentUser();
   
-  if (!isAuthenticated || !hasToken || !hasUser) {
-    return <Navigate to="/login" replace />;
+  if (!token || !isAuthenticated || !hasToken || !hasUser) {
+    // Only redirect to login if not already on login page
+    return location.pathname === '/login' 
+      ? children 
+      : <Navigate to="/login" replace />;
   }
 
   if (requiredRole && role !== requiredRole) {
@@ -36,7 +41,10 @@ const ProtectedRoute = ({ children, requiredRole }) => {
     } else if (role === 'admin') {
       return <Navigate to="/admin/dashboard" replace />;
     }
-    return <Navigate to="/login" replace />;
+    // Only redirect to login if not already on login page
+    return location.pathname === '/login' 
+      ? children 
+      : <Navigate to="/login" replace />;
   }
 
   return children;

@@ -14,6 +14,7 @@ import About from '../pages/About/About';
 import StudentDashboard from '../pages/Student/Dashboard/StudentDashboard';
 import StudentCourses from '../pages/Student/Courses/StudentCourses';
 import StudentCourseDetails from '../pages/Student/Courses/StudentCourseDetails';
+import StudentEnrollment from '../pages/Student/Enrollment/StudentEnrollment';
 import StudentLessons from '../pages/Student/Lessons/StudentLessons';
 import StudentQuizzes from '../pages/Student/Quizzes/StudentQuizzes';
 import TakeQuiz from '../pages/Student/Quizzes/TakeQuiz';
@@ -50,6 +51,7 @@ import AdminCertificates from '../pages/Admin/Certificates/AdminCertificates';
 import AdminAnalytics from '../pages/Admin/Analytics/AdminAnalytics';
 import AdminSettings from '../pages/Admin/Settings/AdminSettings';
 import ActivityLog from '../pages/Admin/ActivityLog/ActivityLog';
+import NotFound from '../pages/NotFound/NotFound';
 import ProtectedRoute from '../components/ProtectedRoute/ProtectedRoute';
 
 const AppRoutes = () => {
@@ -88,6 +90,7 @@ const AppRoutes = () => {
         <Route path="/student/dashboard" element={<StudentDashboard />} />
         <Route path="/student/courses" element={<StudentCourses />} />
         <Route path="/student/courses/:courseId" element={<StudentCourseDetails />} />
+        <Route path="/student/enrollment" element={<StudentEnrollment />} />
         <Route path="/student/lessons" element={<StudentLessons />} />
         <Route path="/student/quizzes" element={<StudentQuizzes />} />
         <Route path="/student/quizzes/:quizId" element={<TakeQuiz />} />
@@ -147,7 +150,7 @@ const AppRoutes = () => {
       </Route>
 
       {/* Catch-all route */}
-      <Route path="*" element={<Navigate to="/" />} />
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 };
