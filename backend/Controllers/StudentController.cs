@@ -14,6 +14,7 @@ using ids.Data.DTOs.QuizAttempt;
 using ids.Data.DTOs.Student;
 using ids.Data.DTOs.User;
 using ids.Services;
+using Microsoft.AspNetCore.Hosting;
 
 namespace ids.Controllers
 {
@@ -26,13 +27,15 @@ namespace ids.Controllers
         private readonly IConfiguration _configuration;
         private readonly CertificatePdfService _pdfService;
         private readonly PasswordHasher<User> _passwordHasher;
+        private readonly IWebHostEnvironment _env;
 
-        public StudentController(AppDbContext context, IConfiguration configuration, CertificatePdfService pdfService)
+        public StudentController(AppDbContext context, IConfiguration configuration, CertificatePdfService pdfService, IWebHostEnvironment env)
         {
             _context = context;
             _configuration = configuration;
             _pdfService = pdfService;
             _passwordHasher = new PasswordHasher<User>();
+            _env = env;
         }
 
         [HttpGet("dashboard")]
@@ -95,6 +98,7 @@ namespace ids.Controllers
                         }
                         catch (Exception ex)
                         {
+                            ErrorLogger.Log(ex, _env);
                             // Log but continue - completion check failure shouldn't break the dashboard
                             Console.WriteLine($"Error checking course completion for course {courseId}: {ex.Message}");
                         }
@@ -187,6 +191,7 @@ namespace ids.Controllers
                         }
                         catch (Exception ex)
                         {
+                            ErrorLogger.Log(ex, _env);
                             Console.WriteLine($"Error checking quiz completion in dashboard: {ex.Message}");
                         }
                         var completedQuizzes = completedQuizIds?.Count ?? 0;
@@ -389,6 +394,7 @@ namespace ids.Controllers
                     }
                     catch (Exception ex)
                     {
+                        ErrorLogger.Log(ex, _env);
                         // Log error for this enrollment but continue with others
                         Console.WriteLine($"Error processing enrollment {enrollment?.Id} in dashboard: {ex.Message}");
                         Console.WriteLine($"Stack trace: {ex.StackTrace}");
@@ -484,6 +490,7 @@ namespace ids.Controllers
                 }
                 catch (Exception ex)
                 {
+                    ErrorLogger.Log(ex, _env);
                     // Log error but continue - overall stats failure shouldn't break the dashboard
                     Console.WriteLine($"Error calculating overall lesson stats: {ex.Message}");
                     // Use defaults (already set to 0 and null)
@@ -518,6 +525,7 @@ namespace ids.Controllers
             }
             catch (Exception ex)
             {
+                ErrorLogger.Log(ex, _env);
                 // Log the error with full details
                 Console.WriteLine($"Error in GetDashboard: {ex.Message}");
                 Console.WriteLine($"Stack trace: {ex.StackTrace}");
@@ -628,6 +636,7 @@ namespace ids.Controllers
                         }
                         catch (Exception ex)
                         {
+                            ErrorLogger.Log(ex, _env);
                             // Log but continue - completion check failure shouldn't break the courses list
                             Console.WriteLine($"Error checking course completion for course {courseId}: {ex.Message}");
                         }
@@ -729,6 +738,7 @@ namespace ids.Controllers
                         }
                         catch (Exception ex)
                         {
+                            ErrorLogger.Log(ex, _env);
                             Console.WriteLine($"Error checking quiz completion in GetMyCourses: {ex.Message}");
                         }
                         var completedQuizzes = completedQuizIds?.Count ?? 0;
@@ -897,6 +907,7 @@ namespace ids.Controllers
                     }
                     catch (Exception ex)
                     {
+                        ErrorLogger.Log(ex, _env);
                         // Log error for this enrollment but continue with others
                         Console.WriteLine($"Error processing enrollment {enrollment?.Id}: {ex.Message}");
                         Console.WriteLine($"Stack trace: {ex.StackTrace}");
@@ -910,6 +921,7 @@ namespace ids.Controllers
             }
             catch (Exception ex)
             {
+                ErrorLogger.Log(ex, _env);
                 // Log the error with full details
                 Console.WriteLine($"Error in GetMyCourses: {ex.Message}");
                 Console.WriteLine($"Stack trace: {ex.StackTrace}");
@@ -1026,6 +1038,7 @@ namespace ids.Controllers
             }
             catch (Exception ex)
             {
+                ErrorLogger.Log(ex, _env);
                 Console.WriteLine($"Error checking quiz completion in GetCourseDetails: {ex.Message}");
             }
 
@@ -1333,6 +1346,7 @@ namespace ids.Controllers
                 }
                 catch (Exception ex)
                 {
+                    ErrorLogger.Log(ex, _env);
                     Console.WriteLine($"Error fetching completions: {ex.Message}");
                     // Continue with empty list if completions query fails
                 }
@@ -1350,6 +1364,7 @@ namespace ids.Controllers
                 }
                 catch (Exception ex)
                 {
+                    ErrorLogger.Log(ex, _env);
                     Console.WriteLine($"Error fetching video progress: {ex.Message}");
                     // Continue with empty dictionary if progress query fails
                 }
@@ -1406,6 +1421,7 @@ namespace ids.Controllers
             }
             catch (Exception ex)
             {
+                ErrorLogger.Log(ex, _env);
                 // Log the error with full details
                 Console.WriteLine($"Error in GetCourseLessons for course {courseId}: {ex.Message}");
                 Console.WriteLine($"Stack trace: {ex.StackTrace}");
@@ -2180,6 +2196,7 @@ namespace ids.Controllers
             }
             catch (Exception ex)
             {
+                ErrorLogger.Log(ex, _env);
                 // Log the error but return empty array instead of error
                 Console.WriteLine($"Error in GetMyQuizzes: {ex.Message}");
                 Console.WriteLine($"Stack trace: {ex.StackTrace}");
@@ -2275,6 +2292,7 @@ namespace ids.Controllers
             }
             catch (Exception ex)
             {
+                ErrorLogger.Log(ex, _env);
                 // Log the error but return empty array instead of error
                 Console.WriteLine($"Error in GetQuizAttempts: {ex.Message}");
                 Console.WriteLine($"Stack trace: {ex.StackTrace}");
@@ -2517,6 +2535,7 @@ namespace ids.Controllers
                 }
                 catch (Exception ex)
                 {
+                    ErrorLogger.Log(ex, _env);
                     // Log error but continue
                     Console.WriteLine($"Error checking quiz completion: {ex.Message}");
                 }
@@ -2593,6 +2612,7 @@ namespace ids.Controllers
             }
             catch (Exception ex)
             {
+                ErrorLogger.Log(ex, _env);
                 // Log the error but don't throw - this is a helper method
                 Console.WriteLine($"Error in CheckAndUpdateCourseCompletion for user {userId}, course {courseId}: {ex.Message}");
                 Console.WriteLine($"Stack trace: {ex.StackTrace}");
@@ -2653,6 +2673,7 @@ namespace ids.Controllers
             }
             catch (Exception ex)
             {
+                ErrorLogger.Log(ex, _env);
                 // Log the error but don't throw - certificate generation failure shouldn't break course completion
                 Console.WriteLine($"Error generating certificate for user {userId}, course {courseId}: {ex.Message}");
                 Console.WriteLine($"Stack trace: {ex.StackTrace}");
@@ -2707,6 +2728,7 @@ namespace ids.Controllers
             }
             catch (Exception ex)
             {
+                ErrorLogger.Log(ex, _env);
                 // Log the error but return empty array instead of error
                 Console.WriteLine($"Error in GetMyCertificates: {ex.Message}");
                 Console.WriteLine($"Stack trace: {ex.StackTrace}");
@@ -2765,6 +2787,7 @@ namespace ids.Controllers
             }
             catch (Exception ex)
             {
+                ErrorLogger.Log(ex, _env);
                 Console.WriteLine($"Error downloading certificate {certificateId}: {ex.Message}");
                 Console.WriteLine($"Stack trace: {ex.StackTrace}");
                 return StatusCode(500, new { message = "Error generating certificate PDF" });
@@ -2797,6 +2820,7 @@ namespace ids.Controllers
             }
             catch (Exception ex)
             {
+                ErrorLogger.Log(ex, _env);
                 Console.WriteLine($"Error fetching profile: {ex.Message}");
                 return StatusCode(500, new { message = "Error fetching profile" });
             }
@@ -2851,6 +2875,7 @@ namespace ids.Controllers
             }
             catch (Exception ex)
             {
+                ErrorLogger.Log(ex, _env);
                 Console.WriteLine($"Error updating profile: {ex.Message}");
                 return StatusCode(500, new { message = "Error updating profile" });
             }
@@ -2942,6 +2967,7 @@ namespace ids.Controllers
             }
             catch (Exception ex)
             {
+                ErrorLogger.Log(ex, _env);
                 Console.WriteLine($"Error changing password: {ex.Message}");
                 return StatusCode(500, new { message = "Error changing password" });
             }

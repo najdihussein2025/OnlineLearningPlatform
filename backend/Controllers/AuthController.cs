@@ -187,9 +187,21 @@ namespace ids.Controllers
         [HttpPost("login")]
         public async Task<ActionResult<AuthResponseDto>> Login(LoginDto dto)
         {
-            var user = await _context.Users.SingleOrDefaultAsync(u => u.Email == dto.Email);
+            // Only allow login for users with Active status (case-insensitive check)
+            var user = await _context.Users.SingleOrDefaultAsync(u => 
+                u.Email == dto.Email && 
+                u.Status.ToLower() == "active");
+            
             if (user == null)
+            {
+                // Check if user exists but is inactive
+                var inactiveUser = await _context.Users.SingleOrDefaultAsync(u => u.Email == dto.Email);
+                if (inactiveUser != null && inactiveUser.Status.ToLower() != "active")
+                {
+                    return Unauthorized(new { message = "Account is disabled" });
+                }
                 return Unauthorized(new { message = "Invalid credentials" });
+            }
 
             // Try PasswordHasher first (for new users), fallback to SHA256 (for existing users)
             bool passwordValid = false;

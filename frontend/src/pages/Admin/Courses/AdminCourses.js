@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import DataTable from '../../../components/admin/DataTable/DataTable';
 import { useDashboardToast } from '../../../components/DashboardLayout/DashboardLayout';
 import ConfirmationDialog from '../../../components/ConfirmationDialog/ConfirmationDialog';
@@ -8,21 +8,43 @@ import './AdminCourses.css';
 
 const AdminCourses = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const prevPathnameRef = useRef(location.pathname);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('All');
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, action: null, courseId: null });
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const { success, error } = useDashboardToast();
 
+  // Fetch courses when statusFilter changes
   useEffect(() => {
     fetchCourses();
-  }, []);
+  }, [statusFilter]);
+
+  // Refetch when navigating back from create/edit pages
+  useEffect(() => {
+    const prevPathname = prevPathnameRef.current;
+    const currentPathname = location.pathname;
+    
+    // Only refetch if we navigated TO /admin/courses FROM a different page
+    if (currentPathname === '/admin/courses' && prevPathname !== '/admin/courses') {
+      fetchCourses();
+    }
+    
+    prevPathnameRef.current = currentPathname;
+  }, [location.pathname]);
 
   const fetchCourses = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/courses');
+      let url = '/courses';
+      
+      if (statusFilter !== 'All') {
+        url += `?status=${statusFilter}`;
+      }
+      
+      const response = await api.get(url);
       console.log('Courses API Response:', response.data);
       
       const coursesData = Array.isArray(response.data) ? response.data : response.data?.data || [];
@@ -48,15 +70,15 @@ const AdminCourses = () => {
     }
   };
 
+  // Client-side search filtering only (status filtering is done on backend)
   const filteredCourses = useMemo(() => {
     return courses.filter(course => {
       const matchesSearch = !searchQuery || 
         course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         course.category.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesStatus = statusFilter === 'all' || course.status === statusFilter;
-      return matchesSearch && matchesStatus;
+      return matchesSearch;
     });
-  }, [searchQuery, statusFilter]);
+  }, [searchQuery, courses]);
 
   const handlePublish = async (courseId) => {
     try {
@@ -77,11 +99,8 @@ const AdminCourses = () => {
         isPublished: newPublishStatus 
       });
       
-      setCourses(courses.map(c => 
-        c.id === courseId ? { ...c, status: newPublishStatus ? 'published' : 'draft' } : c
-      ));
-      
       success(`Course ${newPublishStatus ? 'published' : 'unpublished'} successfully`);
+      fetchCourses(); // Refetch courses to update the table
     } catch (err) {
       console.error('Error publishing course:', err);
       error('Failed to update course: ' + (err.response?.data?.message || err.message));
@@ -110,8 +129,8 @@ const AdminCourses = () => {
       try {
         console.log('Deleting course:', confirmDialog.courseId);
         await api.delete(`/courses/${confirmDialog.courseId}`);
-        setCourses(courses.filter(c => c.id !== confirmDialog.courseId));
         success('Course deleted successfully');
+        fetchCourses(); // Refetch courses to update the table
       } catch (err) {
         console.error('Error deleting course:', err);
         error('Failed to delete course: ' + (err.response?.data?.message || err.message));
@@ -206,7 +225,7 @@ const AdminCourses = () => {
               onChange={(e) => setStatusFilter(e.target.value)}
               className="filter-select"
             >
-              <option value="all">All Status</option>
+              <option value="All">All Status</option>
               <option value="published">Published</option>
               <option value="draft">Draft</option>
             </select>
@@ -238,4 +257,5 @@ const AdminCourses = () => {
 };
 
 export default AdminCourses;
+
 

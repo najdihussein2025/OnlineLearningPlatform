@@ -37,12 +37,12 @@ const NewLesson = () => {
       const payload = {
         courseId,
         title: form.title,
+        order: parseInt(form.order) || 1,
+        durationMinutes: parseInt(form.estimatedDuration) || 0,
         content: form.content,
         videoUrl: form.videoUrl,
         pdfUrl: form.pdfUrl,
-        externalUrl: form.externalUrl,
-        order: parseInt(form.order) || 1,
-        estimatedDuration: form.estimatedDuration
+        externalUrl: form.externalUrl
       };
       await api.post('/lessons', payload);
       navigate(`/instructor/lessons?course=${courseId}`);

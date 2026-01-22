@@ -28,9 +28,24 @@ namespace ids.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<UserResponseDto>>> GetUsers()
+        public async Task<ActionResult<IEnumerable<UserResponseDto>>> GetUsers([FromQuery] string? role, [FromQuery] string? status)
         {
-            var users = await _context.Users
+            // Always exclude Admin users from the list
+            var query = _context.Users.Where(u => u.Role != "Admin");
+
+            // Apply role filter if provided
+            if (!string.IsNullOrEmpty(role) && role.ToLower() != "all")
+            {
+                query = query.Where(u => u.Role.ToLower() == role.ToLower());
+            }
+
+            // Apply status filter if provided
+            if (!string.IsNullOrEmpty(status) && status.ToLower() != "all")
+            {
+                query = query.Where(u => u.Status.ToLower() == status.ToLower());
+            }
+
+            var users = await query
                 .Select(u => new UserResponseDto
                 {
                     Id = u.Id,
@@ -59,6 +74,7 @@ namespace ids.Controllers
                 FullName = user.FullName,
                 Email = user.Email,
                 Role = user.Role,
+                Status = user.Status,
                 CreatedAt = user.CreatedAt
             });
         }
@@ -71,7 +87,9 @@ namespace ids.Controllers
                 FullName = dto.FullName,
                 Email = dto.Email,
                 HashedPassword = HashPassword(dto.Password),
-                Role = dto.Role
+                Role = dto.Role,
+                Status = "Active",
+                CreatedAt = DateTime.UtcNow
             };
 
             _context.Users.Add(user);
@@ -83,6 +101,7 @@ namespace ids.Controllers
                 FullName = user.FullName,
                 Email = user.Email,
                 Role = user.Role,
+                Status = user.Status,
                 CreatedAt = user.CreatedAt
             });
         }
@@ -128,6 +147,44 @@ namespace ids.Controllers
             return NoContent();
         }
 
+        [HttpPut("{id}/status")]
+        public async Task<IActionResult> ChangeStatus(int id, [FromBody] ChangeStatusDto dto)
+        {
+            var user = await _context.Users.FindAsync(id);
+            if (user == null)
+                return NotFound();
+
+            // Prevent changing Admin status
+            if (user.Role == "Admin")
+                return Forbid("Cannot change status of Admin users");
+
+            if (string.IsNullOrEmpty(dto.Status))
+                return BadRequest(new { message = "Status is required" });
+
+            var previousStatus = user.Status;
+            user.Status = dto.Status;
+            await _context.SaveChangesAsync();
+
+            // Log the status change
+            var sub = User.FindFirstValue(JwtRegisteredClaimNames.Sub) ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+            int.TryParse(sub, out var userId);
+
+            var auditLog = new AuditLog
+            {
+                Action = "Update",
+                EntityType = "User",
+                EntityId = user.Id,
+                EntityName = user.FullName ?? user.Email,
+                Description = $"User status changed from '{previousStatus}' to '{dto.Status}'",
+                UserId = userId,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.AuditLogs.Add(auditLog);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "User status updated successfully" });
+        }
+
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteUser(int id)
         {
@@ -135,6 +192,10 @@ namespace ids.Controllers
 
             if (user == null)
                 return NotFound();
+
+            // Prevent deleting Admin users
+            if (user.Role == "Admin")
+                return Forbid("Cannot delete Admin users");
 
             // Extract user ID from JWT for audit logging
             var sub = User.FindFirstValue(JwtRegisteredClaimNames.Sub) ?? User.FindFirstValue(ClaimTypes.NameIdentifier);

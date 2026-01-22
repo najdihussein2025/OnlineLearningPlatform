@@ -36,4 +36,9 @@ namespace ids.Data.DTOs.User
         public string NewPassword { get; set; }
         public string ConfirmPassword { get; set; }
     }
+
+    public class ChangeStatusDto
+    {
+        public string Status { get; set; }
+    }
 }

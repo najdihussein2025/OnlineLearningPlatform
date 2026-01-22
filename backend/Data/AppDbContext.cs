@@ -53,6 +53,8 @@ namespace ids.Data
             {
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Title).IsRequired().HasMaxLength(300);
+                entity.Property(e => e.PdfUrl).IsRequired(false);
+                entity.Property(e => e.ExternalUrl).IsRequired(false);
                 entity.HasOne(e => e.Course).WithMany(c => c.Lessons).HasForeignKey(e => e.CourseId).OnDelete(DeleteBehavior.Cascade);
             });
 

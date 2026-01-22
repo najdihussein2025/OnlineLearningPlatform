@@ -1,4 +1,5 @@
 using System;
+using System.Text.Json.Serialization;
 
 namespace ids.Data.DTOs.Lesson
 {
@@ -7,10 +8,11 @@ namespace ids.Data.DTOs.Lesson
         public int CourseId { get; set; }
         public string Title { get; set; }
         public string Content { get; set; }
-        public string VideoUrl { get; set; }
-        public string PdfUrl { get; set; }
-        public string ExternalUrl { get; set; }
+        public string? VideoUrl { get; set; }
+        public string? PdfUrl { get; set; }
+        public string? ExternalUrl { get; set; }
         public int Order { get; set; }
+        [JsonPropertyName("durationMinutes")]
         public int EstimatedDuration { get; set; }
     }
 

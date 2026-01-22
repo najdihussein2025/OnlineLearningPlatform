@@ -7,9 +7,8 @@ using System.Text;
 
 using System.Security.Claims;
 using ids.Data;
-
-
-    using ids.Services;
+using ids.Middleware;
+using ids.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -105,23 +104,12 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
-// Run migrations and seed default accounts on startup
+
 using (var scope = app.Services.CreateScope())
 {
-    try
-    {
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        // Ensure database is created and seeded
-        await SeedData.InitializeAsync(db);
-    }
-    catch (Exception ex)
-    {
-        var logger = scope.ServiceProvider.GetService<ILoggerFactory>()?.CreateLogger("SeedData");
-        logger?.LogError(ex, "An error occurred seeding the DB.");
-    }
-
-
-
+    var services = scope.ServiceProvider;
+    var context = services.GetRequiredService<AppDbContext>();
+    await SeedData.InitializeAsync(context);
 }
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -144,6 +132,7 @@ app.UseCors("AllowReact");
 
 app.UseAuthentication();
 
+app.UseMiddleware<ExceptionMiddleware>();
 
 app.UseAuthorization();
 
