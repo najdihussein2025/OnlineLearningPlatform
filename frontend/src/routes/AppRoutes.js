@@ -21,6 +21,8 @@ import TakeQuiz from '../pages/Student/Quizzes/TakeQuiz';
 import StudentProgress from '../pages/Student/Progress/StudentProgress';
 import StudentCertificates from '../pages/Student/Certificates/StudentCertificates';
 import StudentSettings from '../pages/Student/Settings/StudentSettings';
+import ChatPage from '../pages/Student/Chat/ChatPage';
+import ChatCourseSelection from '../pages/Student/Chat/ChatCourseSelection';
 import InstructorLayout from '../layouts/InstructorLayout';
 import InstructorDashboard from '../pages/Instructor/Dashboard/InstructorDashboard';
 import InstructorCourses from '../pages/Instructor/Courses/InstructorCourses';
@@ -96,6 +98,8 @@ const AppRoutes = () => {
         <Route path="/student/quizzes/:quizId" element={<TakeQuiz />} />
         <Route path="/student/progress" element={<StudentProgress />} />
         <Route path="/student/certificates" element={<StudentCertificates />} />
+        <Route path="/student/chat" element={<ChatCourseSelection />} />
+        <Route path="/student/chat/:courseId" element={<ChatPage />} />
         <Route path="/student/settings" element={<StudentSettings />} />
       </Route>
 
@@ -121,6 +125,8 @@ const AppRoutes = () => {
         <Route path="/instructor/students/course/:courseId" element={<EditStudent />} />
         <Route path="/instructor/students/:id" element={<EditStudent />} />
         <Route path="/instructor/analytics" element={<InstructorAnalytics />} />
+        <Route path="/instructor/chat" element={<ChatCourseSelection />} />
+        <Route path="/instructor/chat/:courseId" element={<ChatPage />} />
         <Route path="/instructor/settings" element={<InstructorSettings />} />
       </Route>
 

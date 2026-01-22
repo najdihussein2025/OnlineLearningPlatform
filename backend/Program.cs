@@ -74,6 +74,21 @@ builder.Services.AddAuthentication(options =>
         // Explicitly map role claims to ensure authorization works correctly
         RoleClaimType = ClaimTypes.Role
     };
+    
+    // Configure JWT for SignalR
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/chatHub"))
+            {
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        }
+    };
 });
 
 builder.Services.AddAuthorization();
@@ -87,6 +102,8 @@ builder.Services.AddScoped<CertificatePdfService>();
 // Register Gemini service for chatbot
 builder.Services.AddScoped<GeminiService>();
 
+// Add SignalR
+builder.Services.AddSignalR();
 
 builder.Services.AddCors(options =>
 {
@@ -99,7 +116,8 @@ builder.Services.AddCors(options =>
 
             policy.WithOrigins("http://localhost:5173", "http://localhost:3000")
                   .AllowAnyHeader()
-                  .AllowAnyMethod();
+                  .AllowAnyMethod()
+                  .AllowCredentials();
         });
 
 
@@ -143,6 +161,9 @@ app.UseMiddleware<ExceptionMiddleware>();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Map SignalR Hub
+app.MapHub<ids.Hubs.ChatHub>("/chatHub");
 
 Console.WriteLine("Backend starting. Listening on http://localhost:5000");
 
