@@ -1,24 +1,26 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
 import * as signalR from '@microsoft/signalr';
 import { useAuth } from '../../../context/AuthContext';
 import api from '../../../services/api';
 import './ChatPage.css';
 
 const ChatPage = () => {
-  const { courseId } = useParams();
-  const navigate = useNavigate();
   const { user } = useAuth();
+  const [contacts, setContacts] = useState([]);
+  const [selectedContact, setSelectedContact] = useState(null);
+  const [selectedCourseId, setSelectedCourseId] = useState(null);
+  const [selectedInstructorId, setSelectedInstructorId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [connection, setConnection] = useState(null);
   const [connected, setConnected] = useState(false);
-  const [courseInfo, setCourseInfo] = useState(null);
-  const [otherParty, setOtherParty] = useState(null);
   const messagesEndRef = useRef(null);
   const connectionRef = useRef(null);
+  const selectedCourseIdRef = useRef(null);
+  const selectedInstructorIdRef = useRef(null);
+  const userIdRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -28,47 +30,39 @@ const ChatPage = () => {
     scrollToBottom();
   }, [messages]);
 
+  // Load contacts on mount
   useEffect(() => {
-    const initializeChat = async () => {
-      if (!courseId || !user) return;
+    const loadContacts = async () => {
+      if (!user) return;
 
       try {
         setLoading(true);
-        setError(null);
+        const contactsRes = await api.get('/chat/contacts');
+        setContacts(contactsRes.data || []);
+        setLoading(false);
+      } catch (err) {
+        console.error('Error loading contacts:', err);
+        setError('Failed to load contacts');
+        setLoading(false);
+      }
+    };
 
-        // Verify access and get course info
-        const verifyRes = await api.get(`/chat/verify/${courseId}`);
-        const verifyData = verifyRes.data;
+    loadContacts();
+  }, [user]);
 
-        if (!verifyData.hasAccess) {
-          setError('You do not have access to this course chat');
-          setLoading(false);
-          return;
-        }
+  // Update refs when values change
+  useEffect(() => {
+    selectedCourseIdRef.current = selectedCourseId;
+    selectedInstructorIdRef.current = selectedInstructorId;
+    userIdRef.current = user?.id;
+  }, [selectedCourseId, selectedInstructorId, user]);
 
-        setCourseInfo({
-          title: verifyData.courseTitle,
-          role: verifyData.role
-        });
+  // Initialize SignalR connection
+  useEffect(() => {
+    const initializeConnection = async () => {
+      if (!user) return;
 
-        // Set other party
-        if (verifyData.role === 'student') {
-          setOtherParty({
-            id: verifyData.otherPartyId,
-            name: verifyData.otherPartyName
-          });
-        } else {
-          // For instructor, we'll use the first enrolled student or allow selection
-          if (verifyData.enrolledStudents && verifyData.enrolledStudents.length > 0) {
-            setOtherParty(verifyData.enrolledStudents[0]);
-          }
-        }
-
-        // Load old messages
-        const messagesRes = await api.get(`/chat/messages/${courseId}`);
-        setMessages(messagesRes.data || []);
-
-        // Connect to SignalR
+      try {
         const token = localStorage.getItem('token');
         const hubConnection = new signalR.HubConnectionBuilder()
           .withUrl(`http://localhost:5000/chatHub?access_token=${token}`, {
@@ -80,13 +74,30 @@ const ChatPage = () => {
 
         connectionRef.current = hubConnection;
 
-        // Set up event handlers
+        // Set up ReceiveMessage listener - uses refs to always have current values
         hubConnection.on('ReceiveMessage', (messageData) => {
-          setMessages(prev => [...prev, messageData]);
-        });
+          setMessages(prev => {
+            // Check if message already exists (avoid duplicates)
+            const exists = prev.some(m => m.id === messageData.id);
+            if (exists) return prev;
 
-        hubConnection.on('UserJoined', (userId) => {
-          console.log('User joined:', userId);
+            // Get current values from refs
+            const currentCourseId = selectedCourseIdRef.current;
+            const currentInstructorId = selectedInstructorIdRef.current;
+            const currentUserId = userIdRef.current;
+
+            // Only add message if it's for the currently selected contact
+            // Message should be between current user and selected contact
+            const isForCurrentChat = 
+              messageData.courseId === currentCourseId &&
+              ((messageData.senderId === currentUserId && messageData.receiverId === currentInstructorId) ||
+               (messageData.receiverId === currentUserId && messageData.senderId === currentInstructorId));
+
+            if (isForCurrentChat) {
+              return [...prev, messageData];
+            }
+            return prev;
+          });
         });
 
         hubConnection.onreconnecting(() => {
@@ -95,29 +106,24 @@ const ChatPage = () => {
 
         hubConnection.onreconnected(() => {
           setConnected(true);
-          // Rejoin the course room
-          if (courseId) {
-            hubConnection.invoke('JoinCourseRoom', parseInt(courseId));
+          // Rejoin the course room if we have a selected contact
+          const currentCourseId = selectedCourseIdRef.current;
+          if (currentCourseId) {
+            hubConnection.invoke('JoinCourseRoom', parseInt(currentCourseId));
           }
         });
 
         // Start connection
         await hubConnection.start();
         setConnected(true);
-
-        // Join the course room
-        await hubConnection.invoke('JoinCourseRoom', parseInt(courseId));
-
         setConnection(hubConnection);
-        setLoading(false);
       } catch (err) {
-        console.error('Error initializing chat:', err);
-        setError(err.response?.data?.message || 'Failed to initialize chat');
-        setLoading(false);
+        console.error('Error initializing SignalR connection:', err);
+        setError('Failed to connect to chat server');
       }
     };
 
-    initializeChat();
+    initializeConnection();
 
     // Cleanup on unmount
     return () => {
@@ -125,43 +131,65 @@ const ChatPage = () => {
         connectionRef.current.stop();
       }
     };
-  }, [courseId, user]);
+  }, [user]);
+
+  // Handle contact selection
+  const handleContactClick = async (contact) => {
+    if (!connection || !connected) {
+      setError('Not connected to chat server');
+      return;
+    }
+
+    try {
+      setSelectedContact(contact);
+      const courseId = contact.courseId;
+      const instructorId = contact.instructorId || contact.studentId; // Handle both student and instructor views
+      
+      setSelectedCourseId(courseId);
+      setSelectedInstructorId(instructorId);
+      setMessages([]);
+      setError(null);
+
+      // Join the course room
+      await connection.invoke('JoinCourseRoom', parseInt(courseId));
+
+      // Load previous messages
+      const messagesRes = await api.get(`/chat/messages/${courseId}/${instructorId}`);
+      setMessages(messagesRes.data || []);
+    } catch (err) {
+      console.error('Error selecting contact:', err);
+      setError('Failed to load chat');
+    }
+  };
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!newMessage.trim() || !connection || !otherParty) return;
+    if (!newMessage.trim() || !connection || !selectedContact || !selectedCourseId || !selectedInstructorId || !user) return;
+
+    const messageText = newMessage.trim();
+    setNewMessage(''); // Clear input immediately for better UX
 
     try {
-      const messageText = newMessage.trim();
-      setNewMessage('');
-
+      // Call SignalR hub method with: courseId, senderId, receiverId, message
       await connection.invoke('SendMessage', 
-        parseInt(courseId), 
-        otherParty.id, 
+        parseInt(selectedCourseId),
+        parseInt(user.id),
+        parseInt(selectedInstructorId),
         messageText
       );
     } catch (err) {
       console.error('Error sending message:', err);
       setError('Failed to send message');
+      // Restore the message text if sending failed
+      setNewMessage(messageText);
     }
   };
 
-  if (loading) {
+  if (loading && contacts.length === 0) {
     return (
       <div className="chat-page">
         <div className="chat-loading">
-          <p>Loading chat...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error && !courseInfo) {
-    return (
-      <div className="chat-page">
-        <div className="chat-error">
-          <p>{error}</p>
-          <button onClick={() => navigate(-1)}>Go Back</button>
+          <p>Loading contacts...</p>
         </div>
       </div>
     );
@@ -169,69 +197,116 @@ const ChatPage = () => {
 
   return (
     <div className="chat-page">
-      <div className="chat-header">
-        <h2>{courseInfo?.title || 'Course Chat'}</h2>
-        <div className="chat-status">
-          <span className={`status-indicator ${connected ? 'connected' : 'disconnected'}`}></span>
-          <span>{connected ? 'Connected' : 'Connecting...'}</span>
-        </div>
-      </div>
-
-      {otherParty && (
-        <div className="chat-other-party">
-          <p>Chatting with: <strong>{otherParty.name}</strong></p>
-        </div>
-      )}
-
-      <div className="chat-messages">
-        {messages.length === 0 ? (
-          <div className="no-messages">
-            <p>No messages yet. Start the conversation!</p>
+      {/* Left Sidebar - Contacts */}
+      <div className="chat-contacts-sidebar">
+        <div className="chat-contacts-header">
+          <h2>Chat</h2>
+          <div className="chat-status">
+            <span className={`status-indicator ${connected ? 'connected' : 'disconnected'}`}></span>
+            <span>{connected ? 'Online' : 'Offline'}</span>
           </div>
-        ) : (
-          messages.map((msg) => {
-            const isMyMessage = msg.senderId === user?.id;
-            return (
-              <div
-                key={msg.id}
-                className={`message ${isMyMessage ? 'message-sent' : 'message-received'}`}
-              >
-                <div className="message-content">
-                  <div className="message-text">{msg.message}</div>
-                  <div className="message-time">
-                    {new Date(msg.sentAt).toLocaleTimeString([], { 
-                      hour: '2-digit', 
-                      minute: '2-digit' 
-                    })}
+        </div>
+        <div className="chat-contacts-list">
+          {contacts.length === 0 ? (
+            <div className="no-contacts">
+              <p>No contacts available</p>
+            </div>
+          ) : (
+            contacts.map((contact) => {
+              const isSelected = selectedContact?.courseId === contact.courseId && 
+                                selectedContact?.instructorId === contact.instructorId;
+              const contactName = contact.instructorName || contact.studentName;
+              return (
+                <div
+                  key={`${contact.courseId}-${contact.instructorId || contact.studentId}`}
+                  className={`chat-contact-item ${isSelected ? 'selected' : ''}`}
+                  onClick={() => handleContactClick(contact)}
+                >
+                  <div className="contact-avatar">
+                    {contactName?.charAt(0).toUpperCase() || '?'}
+                  </div>
+                  <div className="contact-info">
+                    <div className="contact-name">{contactName}</div>
+                    <div className="contact-course">{contact.courseTitle}</div>
                   </div>
                 </div>
-              </div>
-            );
-          })
-        )}
-        <div ref={messagesEndRef} />
+              );
+            })
+          )}
+        </div>
       </div>
 
-      <form className="chat-input-form" onSubmit={handleSendMessage}>
-        <input
-          type="text"
-          className="chat-input"
-          value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
-          placeholder="Type a message..."
-          disabled={!connected || !otherParty}
-        />
-        <button
-          type="submit"
-          className="chat-send-button"
-          disabled={!newMessage.trim() || !connected || !otherParty}
-        >
-          Send
-        </button>
-      </form>
+      {/* Right Side - Chat Messages */}
+      <div className="chat-messages-panel">
+        {!selectedContact ? (
+          <div className="chat-empty-state">
+            <p>Select a contact to start chatting</p>
+          </div>
+        ) : (
+          <>
+            <div className="chat-header">
+              <div className="chat-header-info">
+                <div className="chat-header-avatar">
+                  {(selectedContact.instructorName || selectedContact.studentName)?.charAt(0).toUpperCase() || '?'}
+                </div>
+                <div>
+                  <h3>{selectedContact.instructorName || selectedContact.studentName}</h3>
+                  <p className="chat-header-course">{selectedContact.courseTitle}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="chat-messages">
+              {messages.length === 0 ? (
+                <div className="no-messages">
+                  <p>No messages yet. Start the conversation!</p>
+                </div>
+              ) : (
+                messages.map((msg) => {
+                  const isMyMessage = msg.senderId === user?.id;
+                  return (
+                    <div
+                      key={msg.id}
+                      className={`message ${isMyMessage ? 'message-sent' : 'message-received'}`}
+                    >
+                      <div className="message-content">
+                        <div className="message-text">{msg.message}</div>
+                        <div className="message-time">
+                          {new Date(msg.sentAt).toLocaleTimeString([], { 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            <form className="chat-input-form" onSubmit={handleSendMessage}>
+              <input
+                type="text"
+                className="chat-input"
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                placeholder="Type a message..."
+                disabled={!connected || !selectedContact}
+              />
+              <button
+                type="submit"
+                className="chat-send-button"
+                disabled={!newMessage.trim() || !connected || !selectedContact}
+              >
+                Send
+              </button>
+            </form>
+          </>
+        )}
+      </div>
     </div>
   );
 };
 
 export default ChatPage;
-

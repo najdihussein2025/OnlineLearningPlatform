@@ -42,14 +42,20 @@ namespace ids.Hubs
             await Clients.Group($"course-{courseId}").SendAsync("UserJoined", userId);
         }
 
-        public async Task SendMessage(int courseId, int receiverId, string message)
+        public async Task SendMessage(int courseId, int senderId, int receiverId, string message)
         {
             var userIdClaim = Context.User?.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value
                 ?? Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             
-            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var senderId))
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var authenticatedUserId))
             {
                 throw new UnauthorizedAccessException("User not authenticated");
+            }
+
+            // Verify that the senderId matches the authenticated user
+            if (senderId != authenticatedUserId)
+            {
+                throw new UnauthorizedAccessException("Sender ID does not match authenticated user");
             }
 
             // Verify user has access to this course
