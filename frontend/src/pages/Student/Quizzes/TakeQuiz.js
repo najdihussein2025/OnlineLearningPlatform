@@ -106,6 +106,27 @@ const TakeQuiz = () => {
     });
   };
 
+  const handleShortAnswer = (questionId, value) => {
+    setAnswers(prev => {
+      const newAnswers = { ...prev };
+      // Store short answer as text in the answers array
+      newAnswers[questionId] = [value];
+      return newAnswers;
+    });
+  };
+
+  // Normalize question type from backend codes to enum names
+  const normalizeQuestionType = (questionType) => {
+    if (!questionType) return 'MultipleChoice';
+    
+    const typeStr = String(questionType).toLowerCase();
+    if (typeStr === 'multiplechoice' || typeStr === 'mcq') return 'MultipleChoice';
+    if (typeStr === 'truefalse' || typeStr === 'tf') return 'TrueFalse';
+    if (typeStr === 'shortanswer' || typeStr === 'sa') return 'ShortAnswer';
+    
+    return 'MultipleChoice'; // default
+  };
+
   const handleSubmit = async () => {
     if (!quiz || !quiz.questions || quiz.questions.length === 0) {
       showToast('Cannot submit quiz with no questions', 'error');
@@ -138,10 +159,20 @@ const TakeQuiz = () => {
 
       // Format answers for API - only include valid questions
       const validQuestions = quiz.questions.filter(q => q && q.id && q.questionText);
-      const formattedAnswers = validQuestions.map(q => ({
-        questionId: q.id,
-        selectedAnswerIds: answers[q.id] || []
-      }));
+      const formattedAnswers = validQuestions.map(q => {
+        const answerValues = answers[q.id] || [];
+        
+        // Convert answer values to IDs (filter out non-numeric values for ShortAnswer text)
+        const selectedAnswerIds = answerValues
+          .filter(id => typeof id === 'number' || (typeof id === 'string' && !isNaN(id)))
+          .map(id => typeof id === 'string' ? parseInt(id, 10) : id)
+          .filter(id => !isNaN(id));
+        
+        return {
+          questionId: q.id,
+          selectedAnswerIds: selectedAnswerIds
+        };
+      });
 
       const resultData = await quizService.submitQuizAttempt(quizId, formattedAnswers);
       setResult(resultData);
@@ -300,6 +331,8 @@ const TakeQuiz = () => {
           {(() => {
             const validQuestions = quiz?.questions?.filter(q => q && q.id && q.questionText) || [];
             return validQuestions.map((question, index) => {
+              const type = normalizeQuestionType(question.type || question.questionType);
+              
               // Ensure question has answers array - handle both 'answers' and 'Answers' (case variations)
               const rawAnswers = question.answers || question.Answers || [];
               const questionAnswers = Array.isArray(rawAnswers) ? rawAnswers : [];
@@ -325,18 +358,19 @@ const TakeQuiz = () => {
                     <span className="question-type">{question.questionType || 'MCQ'}</span>
                   </div>
                   <h3 className="question-text">{question.questionText}</h3>
-                  {!hasValidAnswers ? (
-                    <div className="no-answers-message">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
-                        <path d="M12 8V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                        <path d="M12 16H12.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                      </svg>
-                      <p>No answer options available for this question. Please contact your instructor.</p>
-                    </div>
-                  ) : (
-                    <div className="question-answers">
-                      {validAnswers.map((answer) => {
+                  {type === 'MultipleChoice' && (
+                    !hasValidAnswers ? (
+                      <div className="no-answers-message">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                          <path d="M12 8V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                          <path d="M12 16H12.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                        </svg>
+                        <p>No answer options available for this question. Please contact your instructor.</p>
+                      </div>
+                    ) : (
+                      <div className="question-answers">
+                        {validAnswers.map((answer) => {
                           const isSelected = answers[question.id]?.includes(answer.id) || false;
                           return (
                             <label 
@@ -344,8 +378,9 @@ const TakeQuiz = () => {
                               className={`answer-option ${isSelected ? 'selected' : ''}`}
                             >
                               <input
-                                type={question.questionType === 'MSQ' ? 'checkbox' : 'radio'}
-                                name={`question-${question.id}`}
+                                type="radio"
+                                name={`q-${question.id}`}
+                                value={answer.id}
                                 checked={isSelected}
                                 onChange={() => handleAnswerChange(question.id, answer.id, question.questionType)}
                               />
@@ -353,6 +388,68 @@ const TakeQuiz = () => {
                             </label>
                           );
                         })}
+                      </div>
+                    )
+                  )}
+
+                  {type === 'TrueFalse' && (
+                    <div className="question-answers">
+                      {(() => {
+                        // Find True and False answer IDs
+                        const trueAnswer = validAnswers.find(a => 
+                          String(a.answerText || '').trim().toLowerCase() === 'true'
+                        );
+                        const falseAnswer = validAnswers.find(a => 
+                          String(a.answerText || '').trim().toLowerCase() === 'false'
+                        );
+                        
+                        // Use answer IDs if available, otherwise fall back to strings
+                        const trueValue = trueAnswer?.id || 'true';
+                        const falseValue = falseAnswer?.id || 'false';
+                        const isTrueSelected = trueAnswer?.id 
+                          ? answers[question.id]?.includes(trueAnswer.id) 
+                          : answers[question.id]?.includes('true');
+                        const isFalseSelected = falseAnswer?.id 
+                          ? answers[question.id]?.includes(falseAnswer.id) 
+                          : answers[question.id]?.includes('false');
+                        
+                        return (
+                          <>
+                            <label className={`answer-option ${isTrueSelected ? 'selected' : ''}`}>
+                              <input
+                                type="radio"
+                                name={`q-${question.id}`}
+                                value={trueValue}
+                                checked={isTrueSelected || false}
+                                onChange={() => handleAnswerChange(question.id, trueValue, question.questionType)}
+                              />
+                              True
+                            </label>
+                            <label className={`answer-option ${isFalseSelected ? 'selected' : ''}`}>
+                              <input
+                                type="radio"
+                                name={`q-${question.id}`}
+                                value={falseValue}
+                                checked={isFalseSelected || false}
+                                onChange={() => handleAnswerChange(question.id, falseValue, question.questionType)}
+                              />
+                              False
+                            </label>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  )}
+
+                  {type === 'ShortAnswer' && (
+                    <div className="question-answers">
+                      <input
+                        type="text"
+                        className="short-answer-input"
+                        placeholder="Type your answer here..."
+                        value={answers[question.id]?.[0] || ''}
+                        onChange={(e) => handleShortAnswer(question.id, e.target.value)}
+                      />
                     </div>
                   )}
                 </div>

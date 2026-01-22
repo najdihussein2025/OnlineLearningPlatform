@@ -303,6 +303,14 @@ const StudentLessons = () => {
       return;
     }
 
+    // Only check downloads for MP4 videos
+    const videoType = getVideoType(selectedLesson.videoUrl);
+    if (videoType !== 'mp4') {
+      setIsDownloaded(false);
+      setOfflineVideoUrl(null);
+      return;
+    }
+
     let mounted = true;
     const checkDownload = async () => {
       try {
@@ -353,8 +361,10 @@ const StudentLessons = () => {
     const video = videoRef.current;
     const lessonType = getLessonType(selectedLesson);
     
-    // Only track progress for video lessons
+    // Only track progress for MP4 video lessons (not YouTube or external)
     if (lessonType !== 'video' || !selectedLesson.videoUrl) return;
+    const videoType = getVideoType(selectedLesson.videoUrl);
+    if (videoType !== 'mp4') return;
 
     // Set initial video position from saved progress
     const lastWatchedSeconds = selectedLesson.lastWatchedSeconds || 0;
@@ -488,6 +498,28 @@ const StudentLessons = () => {
     return 'article'; // default
   };
 
+  // Get video type from URL
+  function getVideoType(url) {
+    if (!url) return 'none';
+
+    if (url.includes('youtube.com') || url.includes('youtu.be')) {
+      return 'youtube';
+    }
+
+    if (url.endsWith('.mp4')) {
+      return 'mp4';
+    }
+
+    return 'external';
+  }
+
+  // Convert YouTube URL to embed URL
+  function toYouTubeEmbed(url) {
+    const videoIdMatch = url.match(/(?:youtu\.be\/|v=)([^&]+)/);
+    const videoId = videoIdMatch ? videoIdMatch[1] : '';
+    return `https://www.youtube.com/embed/${videoId}`;
+  }
+
   // Format duration from minutes
   const formatDuration = (minutes) => {
     if (!minutes) return 'N/A';
@@ -500,6 +532,10 @@ const StudentLessons = () => {
   // Handle download video
   const handleDownloadVideo = async () => {
     if (!selectedLesson || !selectedLesson.videoUrl || isDownloading) return;
+
+    // Only allow downloads for MP4 videos
+    const videoType = getVideoType(selectedLesson.videoUrl);
+    if (videoType !== 'mp4') return;
 
     try {
       setIsDownloading(true);
@@ -980,123 +1016,160 @@ const StudentLessons = () => {
           </div>
 
           <div className="lesson-player">
-            {lessonType === 'video' && selectedLesson.videoUrl ? (
-              <div className="video-container">
-                {/* Online/Offline indicator */}
-                {!isOnline && (
-                  <div className="offline-indicator" style={{
-                    position: 'absolute',
-                    top: '10px',
-                    right: '10px',
-                    background: 'rgba(0, 0, 0, 0.7)',
-                    color: 'white',
-                    padding: '8px 12px',
-                    borderRadius: '4px',
-                    fontSize: '12px',
-                    zIndex: 10,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                  }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM13 17H11V15H13V17ZM13 13H11V7H13V13Z" fill="currentColor"/>
-                    </svg>
-                    Offline Mode
-                  </div>
-                )}
-                
-                {/* Download button */}
-                {selectedLesson.videoUrl && (
-                  <div className="video-download-controls" style={{
-                    position: 'absolute',
-                    top: '10px',
-                    left: '10px',
-                    zIndex: 10,
-                    display: 'flex',
-                    gap: '8px'
-                  }}>
-                    {!isDownloaded ? (
-                      <button
-                        onClick={handleDownloadVideo}
-                        disabled={isDownloading || !isOnline}
-                        className="btn-download"
-                        style={{
-                          background: isOnline ? 'rgba(0, 0, 0, 0.7)' : 'rgba(100, 100, 100, 0.7)',
-                          color: 'white',
-                          border: 'none',
-                          padding: '8px 12px',
-                          borderRadius: '4px',
-                          cursor: isDownloading || !isOnline ? 'not-allowed' : 'pointer',
-                          fontSize: '12px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          opacity: isDownloading || !isOnline ? 0.6 : 1
-                        }}
-                        title={!isOnline ? 'Requires internet connection' : 'Download for offline viewing'}
-                      >
-                        {isDownloading ? (
-                          <>
-                            <div className="spinner-small" style={{ width: '14px', height: '14px' }}></div>
-                            {Math.round(downloadProgress)}%
-                          </>
-                        ) : (
-                          <>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M19 12V19H5V12H3V19C3 20.1 3.9 21 5 21H19C20.1 21 21 20.1 21 19V12H19ZM13 12.67L15.59 10.09L17 11.5L12 16.5L7 11.5L8.41 10.09L11 12.67V3H13V12.67Z" fill="currentColor"/>
-                            </svg>
-                            Download
-                          </>
-                        )}
-                      </button>
-                    ) : (
-                      <button
-                        onClick={handleDeleteDownload}
-                        className="btn-delete-download"
-                        style={{
+            {lessonType === 'video' && selectedLesson.videoUrl ? (() => {
+              const videoType = getVideoType(selectedLesson.videoUrl);
+              
+              return (
+                <div className="video-container">
+                  {videoType === 'mp4' && (
+                    <>
+                      {/* Online/Offline indicator */}
+                      {!isOnline && (
+                        <div className="offline-indicator" style={{
+                          position: 'absolute',
+                          top: '10px',
+                          right: '10px',
                           background: 'rgba(0, 0, 0, 0.7)',
                           color: 'white',
-                          border: 'none',
                           padding: '8px 12px',
                           borderRadius: '4px',
-                          cursor: 'pointer',
                           fontSize: '12px',
+                          zIndex: 10,
                           display: 'flex',
                           alignItems: 'center',
                           gap: '6px'
-                        }}
-                        title="Delete downloaded video"
-                      >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M19 6.41L17.59 5L12 10.59L6.41 5L5 6.41L10.59 12L5 17.59L6.41 19L12 13.41L17.59 19L19 17.59L13.41 12L19 6.41Z" fill="currentColor"/>
-                        </svg>
-                        Downloaded
-                      </button>
-                    )}
-                  </div>
-                )}
+                        }}>
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM13 17H11V15H13V17ZM13 13H11V7H13V13Z" fill="currentColor"/>
+                          </svg>
+                          Offline Mode
+                        </div>
+                      )}
+                      
+                      {/* Download button */}
+                      {selectedLesson.videoUrl && (
+                        <div className="video-download-controls" style={{
+                          position: 'absolute',
+                          top: '10px',
+                          left: '10px',
+                          zIndex: 10,
+                          display: 'flex',
+                          gap: '8px'
+                        }}>
+                          {!isDownloaded ? (
+                            <button
+                              onClick={handleDownloadVideo}
+                              disabled={isDownloading || !isOnline}
+                              className="btn-download"
+                              style={{
+                                background: isOnline ? 'rgba(0, 0, 0, 0.7)' : 'rgba(100, 100, 100, 0.7)',
+                                color: 'white',
+                                border: 'none',
+                                padding: '8px 12px',
+                                borderRadius: '4px',
+                                cursor: isDownloading || !isOnline ? 'not-allowed' : 'pointer',
+                                fontSize: '12px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                opacity: isDownloading || !isOnline ? 0.6 : 1
+                              }}
+                              title={!isOnline ? 'Requires internet connection' : 'Download for offline viewing'}
+                            >
+                              {isDownloading ? (
+                                <>
+                                  <div className="spinner-small" style={{ width: '14px', height: '14px' }}></div>
+                                  {Math.round(downloadProgress)}%
+                                </>
+                              ) : (
+                                <>
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M19 12V19H5V12H3V19C3 20.1 3.9 21 5 21H19C20.1 21 21 20.1 21 19V12H19ZM13 12.67L15.59 10.09L17 11.5L12 16.5L7 11.5L8.41 10.09L11 12.67V3H13V12.67Z" fill="currentColor"/>
+                                  </svg>
+                                  Download
+                                </>
+                              )}
+                            </button>
+                          ) : (
+                            <button
+                              onClick={handleDeleteDownload}
+                              className="btn-delete-download"
+                              style={{
+                                background: 'rgba(0, 0, 0, 0.7)',
+                                color: 'white',
+                                border: 'none',
+                                padding: '8px 12px',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px'
+                              }}
+                              title="Delete downloaded video"
+                            >
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M19 6.41L17.59 5L12 10.59L6.41 5L5 6.41L10.59 12L5 17.59L6.41 19L12 13.41L17.59 19L19 17.59L13.41 12L19 6.41Z" fill="currentColor"/>
+                              </svg>
+                              Downloaded
+                            </button>
+                          )}
+                        </div>
+                      )}
 
-                <video 
-                  ref={videoRef}
-                  controls 
-                  className="lesson-video"
-                  src={offlineVideoUrl || selectedLesson.videoUrl}
-                >
-                  <source src={offlineVideoUrl || selectedLesson.videoUrl} type="video/mp4" />
-                  Your browser does not support the video tag.
-                </video>
-                
-                {downloadError && (
-                  <div className="error-message" style={{
-                    marginTop: '8px',
-                    color: 'var(--error-color, #dc3545)',
-                    fontSize: 'var(--font-size-sm)'
-                  }}>
-                    {downloadError}
-                  </div>
-                )}
-              </div>
-            ) : lessonType === 'pdf' && selectedLesson.pdfUrl ? (
+                      <video 
+                        ref={videoRef}
+                        controls 
+                        className="lesson-video"
+                        width="100%"
+                        src={offlineVideoUrl || selectedLesson.videoUrl}
+                      >
+                        <source src={offlineVideoUrl || selectedLesson.videoUrl} type="video/mp4" />
+                        Your browser does not support the video tag.
+                      </video>
+                      
+                      {downloadError && (
+                        <div className="error-message" style={{
+                          marginTop: '8px',
+                          color: 'var(--error-color, #dc3545)',
+                          fontSize: 'var(--font-size-sm)'
+                        }}>
+                          {downloadError}
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {videoType === 'youtube' && (
+                    <iframe
+                      width="100%"
+                      height="450"
+                      src={toYouTubeEmbed(selectedLesson.videoUrl)}
+                      frameBorder="0"
+                      allowFullScreen
+                      title="Lesson Video"
+                    />
+                  )}
+
+                  {videoType === 'external' && (
+                    <a href={selectedLesson.videoUrl} target="_blank" rel="noopener noreferrer" className="btn-primary" style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      textDecoration: 'none',
+                      padding: '12px 24px'
+                    }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M18 13V19C18 19.5304 17.7893 20.0391 17.4142 20.4142C17.0391 20.7893 16.5304 21 16 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V8C3 7.46957 3.21071 6.96086 3.58579 6.58579C3.96086 6.21071 4.46957 6 5 6H11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M15 3H21V9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M10 14L21 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      Open Video
+                    </a>
+                  )}
+                </div>
+              );
+            })() : lessonType === 'pdf' && selectedLesson.pdfUrl ? (
               <div className="pdf-container" style={{
                 width: '100%',
                 height: '600px',
