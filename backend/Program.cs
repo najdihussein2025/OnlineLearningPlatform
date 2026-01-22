@@ -2,9 +2,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-
-
-
 using System.Security.Claims;
 using ids.Data;
 using ids.Middleware;
@@ -93,6 +90,18 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 
+// Add distributed cache (required for session)
+builder.Services.AddDistributedMemoryCache();
+
+// Add session support for 2FA flow
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromMinutes(15);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+    options.Cookie.SameSite = SameSiteMode.Lax;
+});
+
 // Register HTTP Client Factory for external API calls
 builder.Services.AddHttpClient();
 
@@ -101,6 +110,9 @@ builder.Services.AddScoped<CertificatePdfService>();
 
 // Register Gemini service for chatbot
 builder.Services.AddScoped<GeminiService>();
+
+// Register Email service for 2FA
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 // Add SignalR
 builder.Services.AddSignalR();
@@ -129,11 +141,38 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
+// Log startup errors
+try
 {
-    var services = scope.ServiceProvider;
-    var context = services.GetRequiredService<AppDbContext>();
-    await SeedData.InitializeAsync(context);
+    using (var scope = app.Services.CreateScope())
+    {
+        var services = scope.ServiceProvider;
+        var context = services.GetRequiredService<AppDbContext>();
+        await SeedData.InitializeAsync(context);
+    }
+}
+catch (Exception ex)
+{
+    var logDir = Path.Combine(app.Environment.ContentRootPath, "Logs");
+    var logPath = Path.Combine(logDir, "errors.txt");
+    
+    if (!Directory.Exists(logDir))
+        Directory.CreateDirectory(logDir);
+    
+    var error = $@"
+==============================
+Date: {DateTime.Now}
+Type: Startup Error
+Message: {ex.Message}
+Inner: {ex.InnerException?.Message}
+StackTrace:
+{ex.StackTrace}
+==============================
+
+";
+    File.AppendAllText(logPath, error);
+    Console.WriteLine($"Startup error: {ex.Message}");
+    throw; // Re-throw to prevent app from starting with errors
 }
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -153,6 +192,9 @@ if (app.Environment.IsDevelopment())
 
 
 app.UseCors("AllowReact");
+
+// Use session before authentication (session is needed for 2FA flow)
+app.UseSession();
 
 app.UseAuthentication();
 

@@ -5,6 +5,7 @@ import AdminLayout from '../layouts/AdminLayout';
 import StudentLayout from '../layouts/StudentLayout';
 import Home from '../pages/Home/Home';
 import Login from '../pages/Login/Login';
+import Verify2FA from '../pages/Login/Verify2FA';
 import Register from '../pages/Register/Register';
 import Dashboard from '../pages/Dashboard/Dashboard';
 import Courses from '../pages/Courses/Courses';
@@ -62,6 +63,7 @@ const AppRoutes = () => {
       <Route element={<PublicLayout />}>
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/verify-2fa" element={<Verify2FA />} />
         <Route path="/register" element={<Register />} />
         <Route path="/signup" element={<Register />} />
         <Route path="/courses" element={<Courses />} />

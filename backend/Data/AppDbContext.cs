@@ -25,6 +25,7 @@ namespace ids.Data
         public DbSet<Review> Reviews { get; set; }
         public DbSet<AuditLog> AuditLogs { get; set; }
         public DbSet<ChatMessage> ChatMessages { get; set; }
+        public DbSet<Admin2FACode> Admin2FACodes { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -155,6 +156,15 @@ namespace ids.Data
                 entity.HasOne(e => e.Receiver).WithMany().HasForeignKey(e => e.ReceiverId).OnDelete(DeleteBehavior.Restrict);
                 entity.HasIndex(e => e.CourseId);
                 entity.HasIndex(e => new { e.SenderId, e.ReceiverId });
+            });
+
+            modelBuilder.Entity<Admin2FACode>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Code).IsRequired().HasMaxLength(6);
+                entity.HasOne(e => e.Admin).WithMany().HasForeignKey(e => e.AdminId).OnDelete(DeleteBehavior.Cascade);
+                entity.HasIndex(e => new { e.AdminId, e.Code, e.IsUsed });
+                entity.HasIndex(e => e.Expiry);
             });
 
         }

@@ -12,6 +12,8 @@ using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
+using ids.Services;
+using Microsoft.AspNetCore.Http;
 
 namespace ids.Controllers
 {
@@ -22,12 +24,14 @@ namespace ids.Controllers
         private readonly AppDbContext _context;
         private readonly IConfiguration _config;
         private readonly PasswordHasher<User> _passwordHasher;
+        private readonly IEmailService _emailService;
 
-        public AuthController(AppDbContext context, IConfiguration config)
+        public AuthController(AppDbContext context, IConfiguration config, IEmailService emailService)
         {
             _context = context;
             _config = config;
             _passwordHasher = new PasswordHasher<User>();
+            _emailService = emailService;
         }
 
         private string HashPassword(string password)
@@ -234,6 +238,54 @@ namespace ids.Controllers
             if (!passwordValid)
                 return Unauthorized(new { message = "Invalid credentials" });
 
+            // Check if user is admin - if so, require 2FA
+            var isAdmin = (user.Role ?? "").ToLowerInvariant() == "admin";
+            
+            if (isAdmin)
+            {
+                // Generate 6-digit code
+                var random = new Random();
+                var code = random.Next(100000, 999999).ToString();
+
+                // Save code to database with 5 minute expiry
+                var twoFACode = new Admin2FACode
+                {
+                    AdminId = user.Id,
+                    Code = code,
+                    Expiry = DateTime.UtcNow.AddMinutes(5),
+                    IsUsed = false
+                };
+
+                _context.Admin2FACodes.Add(twoFACode);
+                await _context.SaveChangesAsync();
+
+                // Send email with code
+                try
+                {
+                    await _emailService.Send2FACodeAsync(user.Email, code);
+                }
+                catch (Exception ex)
+                {
+                    // Log error but don't fail the request - code is still saved
+                    // In production, you might want to handle this differently
+                    Console.WriteLine($"Error sending 2FA email: {ex.Message}");
+                }
+
+                // Store in session for 2FA verification (DO NOT issue JWT)
+                HttpContext.Session.SetString("TwoFactorUserId", user.Id.ToString());
+                HttpContext.Session.SetString("TwoFactorExpiry", (DateTime.UtcNow.AddMinutes(10)).ToString("O"));
+
+                // Return 2FA required response (DO NOT issue JWT)
+                return Ok(new AuthResponseDto 
+                { 
+                    Requires2FA = true, 
+                    AdminId = null, // Don't return adminId to frontend
+                    Token = null,
+                    User = null
+                });
+            }
+
+            // Non-admin users: proceed with normal login
             var token = CreateToken(user);
 
             var userDto = new UserResponseDto
@@ -243,6 +295,77 @@ namespace ids.Controllers
                 Email = user.Email,
                 Role = (user.Role ?? "student").ToLowerInvariant(),
                 CreatedAt = user.CreatedAt
+            };
+
+            return Ok(new AuthResponseDto { Token = token, User = userDto });
+        }
+
+        [HttpPost("verify-2fa")]
+        public async Task<ActionResult<AuthResponseDto>> Verify2FA(Verify2FADto dto)
+        {
+            // Read userId from session (NOT from request body)
+            var userIdStr = HttpContext.Session.GetString("TwoFactorUserId");
+            var expiryStr = HttpContext.Session.GetString("TwoFactorExpiry");
+
+            // Check if session exists and is valid
+            if (string.IsNullOrEmpty(userIdStr) || string.IsNullOrEmpty(expiryStr))
+            {
+                return Unauthorized(new { message = "Session expired. Please login again." });
+            }
+
+            // Parse userId
+            if (!int.TryParse(userIdStr, out var userId))
+            {
+                return Unauthorized(new { message = "Invalid session. Please login again." });
+            }
+
+            // Check if session has expired
+            if (DateTime.TryParse(expiryStr, out var expiry) && expiry < DateTime.UtcNow)
+            {
+                // Clear session
+                HttpContext.Session.Remove("TwoFactorUserId");
+                HttpContext.Session.Remove("TwoFactorExpiry");
+                return Unauthorized(new { message = "Session expired. Please login again." });
+            }
+
+            // Find the code using userId from session
+            var codeEntry = await _context.Admin2FACodes
+                .FirstOrDefaultAsync(c => 
+                    c.AdminId == userId && 
+                    c.Code == dto.Code && 
+                    !c.IsUsed &&
+                    c.Expiry > DateTime.UtcNow);
+
+            if (codeEntry == null)
+            {
+                return Unauthorized(new { message = "Invalid or expired code" });
+            }
+
+            // Mark code as used
+            codeEntry.IsUsed = true;
+            await _context.SaveChangesAsync();
+
+            // Get admin user
+            var admin = await _context.Users.FindAsync(userId);
+            if (admin == null || (admin.Role ?? "").ToLowerInvariant() != "admin")
+            {
+                return Unauthorized(new { message = "Invalid admin account" });
+            }
+
+            // Clear 2FA session
+            HttpContext.Session.Remove("TwoFactorUserId");
+            HttpContext.Session.Remove("TwoFactorExpiry");
+
+            // Now create the real login (JWT token)
+            var token = CreateToken(admin);
+
+            var userDto = new UserResponseDto
+            {
+                Id = admin.Id,
+                FullName = admin.FullName,
+                Email = admin.Email,
+                Role = (admin.Role ?? "admin").ToLowerInvariant(),
+                CreatedAt = admin.CreatedAt
             };
 
             return Ok(new AuthResponseDto { Token = token, User = userDto });

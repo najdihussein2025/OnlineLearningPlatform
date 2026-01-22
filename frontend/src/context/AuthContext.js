@@ -45,6 +45,14 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       const data = await authService.login(email, password);
+      // Check if 2FA is required
+      if (data.requires2FA) {
+        // Set 2FA pending state
+        localStorage.setItem('2fa_pending', 'true');
+        return { success: true, data, requires2FA: true };
+      }
+      // Clear 2FA pending if it exists (shouldn't happen, but safety check)
+      localStorage.removeItem('2fa_pending');
       const userData = data.user || { email, firstName: email.split('@')[0] };
       // Normalize role to lowercase and set default to student
       const role = (data.user?.role || localStorage.getItem('role') || 'student').toLowerCase();
@@ -55,6 +63,24 @@ export const AuthProvider = ({ children }) => {
       return {
         success: false,
         error: error.response?.data?.message || 'Login failed',
+      };
+    }
+  };
+
+  const verify2FA = async (code) => {
+    try {
+      const data = await authService.verify2FA(code);
+      // Remove 2FA pending state on successful verification
+      localStorage.removeItem('2fa_pending');
+      const userData = data.user || {};
+      const role = (data.user?.role || 'admin').toLowerCase();
+      localStorage.setItem('role', role);
+      setUser({ ...userData, role });
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Verification failed',
       };
     }
   };
@@ -76,6 +102,7 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     authService.logout();
     localStorage.removeItem('role');
+    localStorage.removeItem('2fa_pending'); // Clear 2FA pending state on logout
     setUser(null);
   };
 
@@ -93,6 +120,7 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     logout,
+    verify2FA,
     isAuthenticated,
     getRole,
     role: user?.role || localStorage.getItem('role') || null,

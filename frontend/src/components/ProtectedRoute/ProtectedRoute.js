@@ -20,12 +20,28 @@ const ProtectedRoute = ({ children, requiredRole }) => {
     );
   }
 
+  // Check for 2FA pending state
+  const is2FAPending = localStorage.getItem('2fa_pending') === 'true';
+  
+  // Allow /verify-2fa route when 2FA is pending
+  if (location.pathname === '/verify-2fa' && is2FAPending) {
+    return children;
+  }
+  
   // Double-check authentication with token
   const token = authService.getToken();
   const hasToken = !!token;
   const hasUser = !!authService.getCurrentUser();
   
   if (!token || !isAuthenticated || !hasToken || !hasUser) {
+    // Don't redirect if 2FA is pending (user is in 2FA flow)
+    if (is2FAPending) {
+      // If 2FA pending but not on verify page, redirect to verify page
+      if (location.pathname !== '/verify-2fa') {
+        return <Navigate to="/verify-2fa" replace />;
+      }
+      return children;
+    }
     // Only redirect to login if not already on login page
     return location.pathname === '/login' 
       ? children 

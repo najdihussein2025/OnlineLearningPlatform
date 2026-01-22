@@ -20,5 +20,12 @@ namespace ids.Data.DTOs.Auth
     {
         public string Token { get; set; }
         public UserResponseDto User { get; set; }
+        public bool Requires2FA { get; set; }
+        public int? AdminId { get; set; }
+    }
+
+    public class Verify2FADto
+    {
+        public string Code { get; set; }
     }
 }

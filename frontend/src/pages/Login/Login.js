@@ -62,6 +62,13 @@ const Login = () => {
     setLoading(false);
 
     if (result.success) {
+      // Check if 2FA is required
+      if (result.requires2FA) {
+        // Redirect to 2FA verification page (session is stored on backend)
+        navigate('/verify-2fa');
+        return;
+      }
+
       // Extract role from backend response - normalize to lowercase
       let role = 'student'; // default
       
