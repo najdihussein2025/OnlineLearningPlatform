@@ -1,205 +1,212 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useDashboardToast } from '../../../components/DashboardLayout/DashboardLayout';
+import api from '../../../services/api';
 import './AdminSettings.css';
 
 const AdminSettings = () => {
-  const [settings, setSettings] = useState({
-    platformName: 'Online Learning Platform',
-    aiQuizGenerator: true,
-    aiLessonSummarizer: true,
-    smartLearningAssistant: true,
-    certificateAutoIssue: true,
-    requireInstructorApproval: true,
-    emailNotifications: true,
+  const { success, error } = useDashboardToast();
+
+  // Password change state
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
   });
-  const [showSuccess, setShowSuccess] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
 
-  const handleToggle = (key) => {
-    setSettings(prev => ({
+  // Chatbot visibility state
+  const [chatbotEnabled, setChatbotEnabled] = useState(false);
+  const [loadingChatbot, setLoadingChatbot] = useState(true);
+  const [savingChatbot, setSavingChatbot] = useState(false);
+
+  // Load chatbot visibility on mount
+  useEffect(() => {
+    loadChatbotVisibility();
+  }, []);
+
+  const loadChatbotVisibility = async () => {
+    try {
+      setLoadingChatbot(true);
+      const response = await api.get('/settings/chatbot-visibility');
+      setChatbotEnabled(response.data?.isEnabled || false);
+    } catch (err) {
+      console.error('Error loading chatbot visibility:', err);
+      // Default to false on error
+      setChatbotEnabled(false);
+    } finally {
+      setLoadingChatbot(false);
+    }
+  };
+
+  const handlePasswordChange = (e) => {
+    const { name, value } = e.target;
+    setPasswordData(prev => ({
       ...prev,
-      [key]: !prev[key]
+      [name]: value
     }));
   };
 
-  const handleInputChange = (key, value) => {
-    setSettings(prev => ({
-      ...prev,
-      [key]: value
-    }));
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+
+    // Validation
+    if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
+      error('All password fields are required');
+      return;
+    }
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      error('New password and confirm password do not match');
+      return;
+    }
+
+    if (passwordData.newPassword.length < 8) {
+      error('New password must be at least 8 characters long');
+      return;
+    }
+
+    try {
+      setSavingPassword(true);
+      await api.put('/users/change-password', {
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword
+      });
+
+      // Reset form
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
+
+      success('Password changed successfully');
+    } catch (err) {
+      console.error('Error changing password:', err);
+      error(err.response?.data?.message || 'Failed to change password');
+    } finally {
+      setSavingPassword(false);
+    }
   };
 
-  const handleSave = () => {
-    // UI only - would call API in production
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 3000);
-  };
-
-  const handleCancel = () => {
-    // Reset to default values
-    setSettings({
-      platformName: 'Online Learning Platform',
-      aiQuizGenerator: true,
-      aiLessonSummarizer: true,
-      smartLearningAssistant: true,
-      certificateAutoIssue: true,
-      requireInstructorApproval: true,
-      emailNotifications: true,
-    });
+  const handleChatbotToggle = async (e) => {
+    const newValue = e.target.checked;
+    
+    try {
+      setSavingChatbot(true);
+      await api.put('/settings/chatbot-visibility', {
+        isEnabled: newValue
+      });
+      
+      setChatbotEnabled(newValue);
+      success(`AI Chatbot ${newValue ? 'enabled' : 'disabled'} for students`);
+    } catch (err) {
+      console.error('Error updating chatbot visibility:', err);
+      error(err.response?.data?.message || 'Failed to update chatbot visibility');
+      // Revert toggle on error
+      setChatbotEnabled(!newValue);
+    } finally {
+      setSavingChatbot(false);
+    }
   };
 
   return (
     <div className="admin-settings-page">
-        <div className="page-header">
-          <h1 className="page-title">Platform Settings</h1>
-          <p className="page-subtitle">Configure platform-wide settings and features</p>
-        </div>
+      <div className="page-header">
+        <h1 className="page-title">Admin Settings</h1>
+        <p className="page-subtitle">Manage your personal settings</p>
+      </div>
 
-        <div className="settings-sections">
-          {/* General Settings */}
-          <div className="settings-section">
-            <h2 className="settings-section-title">General Settings</h2>
-            <div className="settings-group">
-              <label htmlFor="platform-name">Platform Name</label>
+      <div className="settings-sections">
+        {/* Section 1: Change Password */}
+        <div className="settings-section">
+          <h2 className="settings-section-title">Change Password</h2>
+          <form onSubmit={handleChangePassword} className="password-form">
+            <div className="form-group">
+              <label htmlFor="currentPassword">Current Password</label>
               <input
-                type="text"
-                id="platform-name"
-                value={settings.platformName}
-                onChange={(e) => handleInputChange('platformName', e.target.value)}
+                type="password"
+                id="currentPassword"
+                name="currentPassword"
+                value={passwordData.currentPassword}
+                onChange={handlePasswordChange}
                 className="settings-input"
+                placeholder="Enter current password"
+                required
               />
             </div>
-          </div>
 
-          {/* AI Features */}
-          <div className="settings-section">
-            <h2 className="settings-section-title">AI Features</h2>
-            <div className="settings-group">
-              <div className="setting-item">
-                <div className="setting-info">
-                  <h3 className="setting-label">AI Quiz Generator</h3>
-                  <p className="setting-description">Automatically generate quiz questions from course content</p>
-                </div>
-                <label className="toggle-switch">
-                  <input
-                    type="checkbox"
-                    checked={settings.aiQuizGenerator}
-                    onChange={() => handleToggle('aiQuizGenerator')}
-                  />
-                  <span className="toggle-slider"></span>
-                </label>
-              </div>
-
-              <div className="setting-item">
-                <div className="setting-info">
-                  <h3 className="setting-label">AI Lesson Summarizer</h3>
-                  <p className="setting-description">Generate concise summaries of lessons</p>
-                </div>
-                <label className="toggle-switch">
-                  <input
-                    type="checkbox"
-                    checked={settings.aiLessonSummarizer}
-                    onChange={() => handleToggle('aiLessonSummarizer')}
-                  />
-                  <span className="toggle-slider"></span>
-                </label>
-              </div>
-
-              <div className="setting-item">
-                <div className="setting-info">
-                  <h3 className="setting-label">Smart Learning Assistant</h3>
-                  <p className="setting-description">AI-powered assistant for personalized learning</p>
-                </div>
-                <label className="toggle-switch">
-                  <input
-                    type="checkbox"
-                    checked={settings.smartLearningAssistant}
-                    onChange={() => handleToggle('smartLearningAssistant')}
-                  />
-                  <span className="toggle-slider"></span>
-                </label>
-              </div>
+            <div className="form-group">
+              <label htmlFor="newPassword">New Password</label>
+              <input
+                type="password"
+                id="newPassword"
+                name="newPassword"
+                value={passwordData.newPassword}
+                onChange={handlePasswordChange}
+                className="settings-input"
+                placeholder="Enter new password (min 8 characters)"
+                required
+                minLength={8}
+              />
             </div>
-          </div>
 
-          {/* Certificate Settings */}
-          <div className="settings-section">
-            <h2 className="settings-section-title">Certificate Settings</h2>
-            <div className="settings-group">
-              <div className="setting-item">
-                <div className="setting-info">
-                  <h3 className="setting-label">Auto-Issue Certificates</h3>
-                  <p className="setting-description">Automatically issue certificates upon course completion</p>
-                </div>
-                <label className="toggle-switch">
-                  <input
-                    type="checkbox"
-                    checked={settings.certificateAutoIssue}
-                    onChange={() => handleToggle('certificateAutoIssue')}
-                  />
-                  <span className="toggle-slider"></span>
-                </label>
-              </div>
+            <div className="form-group">
+              <label htmlFor="confirmPassword">Confirm Password</label>
+              <input
+                type="password"
+                id="confirmPassword"
+                name="confirmPassword"
+                value={passwordData.confirmPassword}
+                onChange={handlePasswordChange}
+                className="settings-input"
+                placeholder="Confirm new password"
+                required
+                minLength={8}
+              />
             </div>
-          </div>
 
-          {/* User Management Settings */}
-          <div className="settings-section">
-            <h2 className="settings-section-title">User Management</h2>
-            <div className="settings-group">
-              <div className="setting-item">
-                <div className="setting-info">
-                  <h3 className="setting-label">Require Instructor Approval</h3>
-                  <p className="setting-description">New instructor accounts require admin approval</p>
-                </div>
-                <label className="toggle-switch">
-                  <input
-                    type="checkbox"
-                    checked={settings.requireInstructorApproval}
-                    onChange={() => handleToggle('requireInstructorApproval')}
-                  />
-                  <span className="toggle-slider"></span>
-                </label>
-              </div>
+            <div className="form-actions">
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={savingPassword}
+              >
+                {savingPassword ? 'Saving...' : 'Save Password'}
+              </button>
             </div>
-          </div>
-
-          {/* Notification Settings */}
-          <div className="settings-section">
-            <h2 className="settings-section-title">Notifications</h2>
-            <div className="settings-group">
-              <div className="setting-item">
-                <div className="setting-info">
-                  <h3 className="setting-label">Email Notifications</h3>
-                  <p className="setting-description">Send email notifications for platform events</p>
-                </div>
-                <label className="toggle-switch">
-                  <input
-                    type="checkbox"
-                    checked={settings.emailNotifications}
-                    onChange={() => handleToggle('emailNotifications')}
-                  />
-                  <span className="toggle-slider"></span>
-                </label>
-              </div>
-            </div>
-          </div>
+          </form>
         </div>
 
-        {showSuccess && (
-          <div className="settings-success-message">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M20 6L9 17L4 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            Settings saved successfully!
+        {/* Section 2: Chatbot Visibility */}
+        <div className="settings-section">
+          <h2 className="settings-section-title">AI Chatbot Visibility</h2>
+          <div className="chatbot-setting">
+            <div className="setting-item">
+              <div className="setting-info">
+                <h3 className="setting-label">Show AI Chatbot to students</h3>
+                <p className="setting-description">
+                  Toggle the visibility of the AI chatbot feature for all students on the platform
+                </p>
+              </div>
+              {loadingChatbot ? (
+                <div className="loading-spinner">Loading...</div>
+              ) : (
+                <label className="toggle-switch">
+                  <input
+                    type="checkbox"
+                    checked={chatbotEnabled}
+                    onChange={handleChatbotToggle}
+                    disabled={savingChatbot}
+                  />
+                  <span className="toggle-slider"></span>
+                </label>
+              )}
+            </div>
           </div>
-        )}
-
-        <div className="settings-actions">
-          <button className="btn-secondary" onClick={handleCancel}>Cancel</button>
-          <button className="btn-primary" onClick={handleSave}>Save Changes</button>
         </div>
       </div>
+    </div>
   );
 };
 
 export default AdminSettings;
-

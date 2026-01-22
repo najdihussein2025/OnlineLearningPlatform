@@ -18,11 +18,18 @@ const EditQuiz = () => {
     timeLimit: 10
   });
 
+  // Question type mapping: UI string -> enum number
+  const questionTypeMap = {
+    "Multiple Choice": 0,
+    "True/False": 1,
+    "Short Answer": 2
+  };
+
   // Questions
   const [questions, setQuestions] = useState([]);
   const [newQuestion, setNewQuestion] = useState({
     questionText: '',
-    questionType: 'multipleChoice',
+    questionType: 'Multiple Choice',
     answers: [
       { answerText: '', isCorrect: false },
       { answerText: '', isCorrect: false }
@@ -163,12 +170,16 @@ const EditQuiz = () => {
     try {
       setSaving(true);
 
-      // Step 1: Create question
+      // Step 1: Create question with answers
       console.log('[AddQuestion] Creating...');
       const qRes = await api.post('/questions', {
         quizId: parseInt(id),
         questionText: newQuestion.questionText,
-        questionType: newQuestion.questionType
+        type: questionTypeMap[newQuestion.questionType],
+        answers: newQuestion.answers.map(ans => ({
+          text: ans.answerText,
+          isCorrect: ans.isCorrect
+        }))
       });
 
       const questionId = qRes.data?.id;
@@ -178,24 +189,16 @@ const EditQuiz = () => {
       }
       console.log('[AddQuestion] Created, ID:', questionId);
 
-      // Step 2: Create answers
-      console.log('[AddQuestion] Creating answers...');
-      await Promise.all(newQuestion.answers.map(ans =>
-        api.post('/answers', {
-          questionId: questionId,
-          answerText: ans.answerText,
-          isCorrect: ans.isCorrect
-        })
-      ));
-      console.log('[AddQuestion] Answers created');
-
       // Step 3: Add to local state
       const newQ = {
         id: questionId,
         quizId: parseInt(id),
         questionText: newQuestion.questionText,
         questionType: newQuestion.questionType,
-        answers: newQuestion.answers
+        answers: qRes.data?.answers || newQuestion.answers.map(ans => ({
+          answerText: ans.answerText,
+          isCorrect: ans.isCorrect
+        }))
       };
       setQuestions(prev => [...prev, newQ]);
       console.log('[AddQuestion] Added to state. Total:', questions.length + 1);
@@ -203,7 +206,7 @@ const EditQuiz = () => {
       // Step 4: Reset form
       setNewQuestion({
         questionText: '',
-        questionType: 'multipleChoice',
+        questionType: 'Multiple Choice',
         answers: [
           { answerText: '', isCorrect: false },
           { answerText: '', isCorrect: false }
@@ -375,8 +378,9 @@ const EditQuiz = () => {
                   value={newQuestion.questionType}
                   onChange={(e) => setNewQuestion(p => ({ ...p, questionType: e.target.value }))}
                 >
-                  <option value="multipleChoice">Multiple Choice</option>
-                  <option value="truefalse">True/False</option>
+                  <option value="Multiple Choice">Multiple Choice</option>
+                  <option value="True/False">True/False</option>
+                  <option value="Short Answer">Short Answer</option>
                 </select>
               </div>
 

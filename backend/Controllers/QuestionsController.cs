@@ -52,15 +52,38 @@ namespace ids.Controllers
         [HttpPost]
         public async Task<ActionResult<QuestionResponseDto>> CreateQuestion(CreateQuestionDto dto)
         {
+            // Convert enum to short string code for database storage (fits in 10 char limit)
+            var questionTypeString = dto.Type switch
+            {
+                QuestionType.MultipleChoice => "MCQ",
+                QuestionType.TrueFalse => "TF",
+                QuestionType.ShortAnswer => "SA",
+                _ => dto.Type.ToString()
+            };
+
             var question = new Question
             {
                 QuizId = dto.QuizId,
                 QuestionText = dto.QuestionText,
-                QuestionType = dto.QuestionType
+                QuestionType = questionTypeString
             };
 
             _context.Questions.Add(question);
             await _context.SaveChangesAsync();
+
+            // Create answers if provided
+            if (dto.Answers != null && dto.Answers.Count > 0)
+            {
+                var answers = dto.Answers.Select(a => new Answer
+                {
+                    QuestionId = question.Id,
+                    AnswerText = a.Text,
+                    IsCorrect = a.IsCorrect
+                }).ToList();
+
+                _context.Answers.AddRange(answers);
+                await _context.SaveChangesAsync();
+            }
 
             // Get quiz info for audit log
             var quiz = await _context.Quizzes.FindAsync(dto.QuizId);
@@ -79,27 +102,65 @@ namespace ids.Controllers
             _context.AuditLogs.Add(auditLog);
             await _context.SaveChangesAsync();
 
+            // Load answers for response
+            await _context.Entry(question).Collection(q => q.Answers).LoadAsync();
+
             var response = new QuestionResponseDto
             {
                 Id = question.Id,
                 QuizId = question.QuizId,
                 QuestionText = question.QuestionText,
                 QuestionType = question.QuestionType,
-                Answers = new List<AnswerResponseDto>()
+                Answers = question.Answers?.Select(a => new AnswerResponseDto 
+                { 
+                    Id = a.Id, 
+                    QuestionId = a.QuestionId, 
+                    AnswerText = a.AnswerText, 
+                    IsCorrect = a.IsCorrect 
+                }).ToList() ?? new List<AnswerResponseDto>()
             };
 
             return CreatedAtAction(nameof(GetQuestion), new { id = question.Id }, response);
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateQuestion(int id, UpdateQuestionDto dto)
+        public async Task<ActionResult<QuestionResponseDto>> UpdateQuestion(int id, UpdateQuestionDto dto)
         {
-            var q = await _context.Questions.FindAsync(id);
+            var q = await _context.Questions.Include(q => q.Answers).FirstOrDefaultAsync(q => q.Id == id);
             if (q == null) return NotFound();
 
             var previousText = q.QuestionText;
             q.QuestionText = dto.QuestionText ?? q.QuestionText;
-            q.QuestionType = dto.QuestionType ?? q.QuestionType;
+            
+            // Update question type if provided
+            if (dto.Type.HasValue)
+            {
+                var questionTypeString = dto.Type.Value switch
+                {
+                    QuestionType.MultipleChoice => "MCQ",
+                    QuestionType.TrueFalse => "TF",
+                    QuestionType.ShortAnswer => "SA",
+                    _ => dto.Type.Value.ToString()
+                };
+                q.QuestionType = questionTypeString;
+            }
+
+            // Update answers if provided
+            if (dto.Answers != null && dto.Answers.Count > 0)
+            {
+                // Remove existing answers
+                _context.Answers.RemoveRange(q.Answers);
+                
+                // Add new answers
+                var newAnswers = dto.Answers.Select(a => new Answer
+                {
+                    QuestionId = q.Id,
+                    AnswerText = a.Text,
+                    IsCorrect = a.IsCorrect
+                }).ToList();
+
+                _context.Answers.AddRange(newAnswers);
+            }
 
             await _context.SaveChangesAsync();
 
@@ -120,7 +181,25 @@ namespace ids.Controllers
             _context.AuditLogs.Add(auditLog);
             await _context.SaveChangesAsync();
 
-            return NoContent();
+            // Load answers for response
+            await _context.Entry(q).Collection(question => question.Answers).LoadAsync();
+
+            var response = new QuestionResponseDto
+            {
+                Id = q.Id,
+                QuizId = q.QuizId,
+                QuestionText = q.QuestionText,
+                QuestionType = q.QuestionType,
+                Answers = q.Answers?.Select(a => new AnswerResponseDto 
+                { 
+                    Id = a.Id, 
+                    QuestionId = a.QuestionId, 
+                    AnswerText = a.AnswerText, 
+                    IsCorrect = a.IsCorrect 
+                }).ToList() ?? new List<AnswerResponseDto>()
+            };
+
+            return Ok(response);
         }
 
         [HttpDelete("{id}")]

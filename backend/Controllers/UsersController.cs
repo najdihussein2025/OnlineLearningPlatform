@@ -4,6 +4,8 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Security.Claims;
 using System.IdentityModel.Tokens.Jwt;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using ids.Data;
 using ids.Models;
 using ids.Data.DTOs.User;
@@ -15,10 +17,12 @@ namespace ids.Controllers
     public class UsersController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly PasswordHasher<User> _passwordHasher;
 
         public UsersController(AppDbContext context)
         {
             _context = context;
+            _passwordHasher = new PasswordHasher<User>();
         }
 
         private string HashPassword(string password)
@@ -218,6 +222,91 @@ namespace ids.Controllers
             await _context.SaveChangesAsync();
 
             return Ok(new { message = "User deleted successfully" });
+        }
+
+        [HttpPut("change-password")]
+        [Authorize]
+        public async Task<ActionResult> ChangePassword(ChangePasswordDto dto)
+        {
+            try
+            {
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier) ?? User.FindFirst(JwtRegisteredClaimNames.Sub);
+                if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out var userId))
+                {
+                    return Unauthorized(new { message = "Invalid user token" });
+                }
+
+                if (string.IsNullOrWhiteSpace(dto?.CurrentPassword))
+                {
+                    return BadRequest(new { message = "Current password is required" });
+                }
+
+                if (string.IsNullOrWhiteSpace(dto?.NewPassword))
+                {
+                    return BadRequest(new { message = "New password is required" });
+                }
+
+                if (dto.NewPassword.Length < 8)
+                {
+                    return BadRequest(new { message = "New password must be at least 8 characters long" });
+                }
+
+                var user = await _context.Users.FindAsync(userId);
+                if (user == null)
+                {
+                    return NotFound(new { message = "User not found" });
+                }
+
+                // Verify current password
+                var passwordVerificationResult = _passwordHasher.VerifyHashedPassword(user: null, user.HashedPassword, dto.CurrentPassword);
+                
+                // Also check SHA256 fallback for backward compatibility
+                bool passwordValid = false;
+                if (passwordVerificationResult == PasswordVerificationResult.Success || 
+                    passwordVerificationResult == PasswordVerificationResult.SuccessRehashNeeded)
+                {
+                    passwordValid = true;
+                }
+                else
+                {
+                    // Fallback to SHA256 for backward compatibility
+                    using var sha256 = SHA256.Create();
+                    var hashed = Convert.ToBase64String(sha256.ComputeHash(Encoding.UTF8.GetBytes(dto.CurrentPassword)));
+                    if (user.HashedPassword == hashed)
+                    {
+                        passwordValid = true;
+                    }
+                }
+
+                if (!passwordValid)
+                {
+                    return Unauthorized(new { message = "Current password is incorrect" });
+                }
+
+                // Hash and save new password
+                user.HashedPassword = _passwordHasher.HashPassword(user: null, dto.NewPassword);
+                await _context.SaveChangesAsync();
+
+                // Log audit trail
+                var auditLog = new AuditLog
+                {
+                    Action = "Update",
+                    EntityType = "Password",
+                    EntityId = userId,
+                    EntityName = user.FullName,
+                    Description = $"User changed password",
+                    UserId = userId,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _context.AuditLogs.Add(auditLog);
+                await _context.SaveChangesAsync();
+
+                return Ok(new { message = "Password changed successfully" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "An error occurred while changing password", error = ex.Message });
+            }
         }
     }
 }

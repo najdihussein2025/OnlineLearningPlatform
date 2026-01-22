@@ -4,6 +4,93 @@ import { useDashboardToast } from '../../../components/DashboardLayout/Dashboard
 import api from '../../../services/api';
 import './AdminQuizzes.css';
 
+// Multiple Choice Answers Component
+const MultipleChoiceAnswers = ({ answers, handleAnswerChange, addAnswerOption, removeAnswerOption }) => {
+  return (
+    <div className="answers-section">
+      <label>Answers *</label>
+      {answers.map((ans, idx) => (
+        <div key={idx} className="answer-option">
+          <input
+            type="text"
+            value={ans.text}
+            onChange={(e) => handleAnswerChange(idx, 'text', e.target.value)}
+            placeholder={`Answer ${idx + 1}`}
+          />
+          <label>
+            <input
+              type="checkbox"
+              checked={ans.isCorrect}
+              onChange={(e) => handleAnswerChange(idx, 'isCorrect', e.target.checked)}
+            />
+            Correct
+          </label>
+          {answers.length > 2 && (
+            <button
+              type="button"
+              onClick={() => removeAnswerOption(idx)}
+              className="btn-small"
+            >
+              Remove
+            </button>
+          )}
+        </div>
+      ))}
+      <button
+        type="button"
+        className="btn-secondary"
+        onClick={addAnswerOption}
+      >
+        + Add Answer
+      </button>
+    </div>
+  );
+};
+
+// True/False Answers Component
+const TrueFalseAnswers = ({ trueFalseAnswer, setTrueFalseAnswer }) => {
+  return (
+    <div className="answers-section">
+      <label>Correct Answer *</label>
+      <div className="true-false-options">
+        <label>
+          <input
+            type="radio"
+            name="trueFalse"
+            checked={trueFalseAnswer === true}
+            onChange={() => setTrueFalseAnswer(true)}
+          />
+          True
+        </label>
+        <label>
+          <input
+            type="radio"
+            name="trueFalse"
+            checked={trueFalseAnswer === false}
+            onChange={() => setTrueFalseAnswer(false)}
+          />
+          False
+        </label>
+      </div>
+    </div>
+  );
+};
+
+// Short Answer Input Component
+const ShortAnswerInput = ({ shortAnswer, setShortAnswer }) => {
+  return (
+    <div className="answers-section">
+      <label>Correct Answer *</label>
+      <input
+        type="text"
+        value={shortAnswer}
+        onChange={(e) => setShortAnswer(e.target.value)}
+        placeholder="Enter the correct answer"
+      />
+    </div>
+  );
+};
+
 const AdminEditQuiz = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -23,15 +110,42 @@ const AdminEditQuiz = () => {
   // Questions list
   const [questions, setQuestions] = useState([]);
 
+  // Question type mapping: UI string -> enum number
+  const questionTypeMap = {
+    "Multiple Choice": 0,
+    "True/False": 1,
+    "Short Answer": 2
+  };
+
+  // Reverse mapping: database code -> UI string
+  const questionTypeCodeMap = {
+    "MCQ": "Multiple Choice",
+    "TF": "True/False",
+    "SA": "Short Answer"
+  };
+
+  // Question type state
+  const [questionType, setQuestionType] = useState("Multiple Choice");
+
   // New question form state
   const [newQuestion, setNewQuestion] = useState({
-    questionText: '',
-    questionType: 'multipleChoice',
-    answers: [
-      { answerText: '', isCorrect: false },
-      { answerText: '', isCorrect: false }
-    ]
+    questionText: ''
   });
+
+  // Multiple Choice answers state
+  const [answers, setAnswers] = useState([
+    { text: '', isCorrect: false },
+    { text: '', isCorrect: false }
+  ]);
+
+  // True/False answer state
+  const [trueFalseAnswer, setTrueFalseAnswer] = useState(true);
+
+  // Short Answer state
+  const [shortAnswer, setShortAnswer] = useState("");
+
+  // Edit mode state
+  const [editingQuestionId, setEditingQuestionId] = useState(null);
 
   // Supporting data
   const [courses, setCourses] = useState([]);
@@ -87,34 +201,41 @@ const AdminEditQuiz = () => {
   };
 
   const handleQuestionTextChange = (e) => {
-    setNewQuestion(prev => ({
-      ...prev,
+    setNewQuestion({
       questionText: e.target.value
-    }));
+    });
   };
 
+  const handleQuestionTypeChange = (e) => {
+    const newType = e.target.value;
+    setQuestionType(newType);
+    // Reset answer states when type changes
+    if (newType === "Multiple Choice") {
+      setAnswers([
+        { text: '', isCorrect: false },
+        { text: '', isCorrect: false }
+      ]);
+    } else if (newType === "True/False") {
+      setTrueFalseAnswer(true);
+    } else if (newType === "Short Answer") {
+      setShortAnswer("");
+    }
+  };
+
+  // Multiple Choice handlers
   const handleAnswerChange = (index, field, value) => {
-    setNewQuestion(prev => ({
-      ...prev,
-      answers: prev.answers.map((ans, i) => 
-        i === index ? { ...ans, [field]: value } : ans
-      )
-    }));
+    setAnswers(prev => prev.map((ans, i) => 
+      i === index ? { ...ans, [field]: value } : ans
+    ));
   };
 
   const addAnswerOption = () => {
-    setNewQuestion(prev => ({
-      ...prev,
-      answers: [...prev.answers, { answerText: '', isCorrect: false }]
-    }));
+    setAnswers(prev => [...prev, { text: '', isCorrect: false }]);
   };
 
   const removeAnswerOption = (index) => {
-    if (newQuestion.answers.length > 2) {
-      setNewQuestion(prev => ({
-        ...prev,
-        answers: prev.answers.filter((_, i) => i !== index)
-      }));
+    if (answers.length > 2) {
+      setAnswers(prev => prev.filter((_, i) => i !== index));
     }
   };
 
@@ -126,17 +247,24 @@ const AdminEditQuiz = () => {
       return false;
     }
 
-    const emptyAnswers = newQuestion.answers.filter(a => !a.answerText.trim());
-    if (emptyAnswers.length > 0) {
-      error('All answers must have text');
-      return false;
+    if (questionType === "Multiple Choice") {
+      const emptyAnswers = answers.filter(a => !a.text.trim());
+      if (emptyAnswers.length > 0) {
+        error('All answers must have text');
+        return false;
+      }
+      const hasCorrect = answers.some(a => a.isCorrect);
+      if (!hasCorrect) {
+        error('At least one answer must be marked as correct');
+        return false;
+      }
+    } else if (questionType === "Short Answer") {
+      if (!shortAnswer.trim()) {
+        error('Correct answer is required');
+        return false;
+      }
     }
-
-    const hasCorrect = newQuestion.answers.some(a => a.isCorrect);
-    if (!hasCorrect) {
-      error('At least one answer must be marked as correct');
-      return false;
-    }
+    // True/False always has an answer (defaults to true)
 
     console.log('[Validate] Valid!');
     return true;
@@ -150,61 +278,154 @@ const AdminEditQuiz = () => {
     try {
       setSaving(true);
 
-      // Step 1: Create question
-      console.log('[AddQuestion] Creating question...');
-      const qRes = await api.post('/questions', {
-        quizId: parseInt(id),
-        questionText: newQuestion.questionText,
-        questionType: newQuestion.questionType
-      });
+      // Build answers payload based on question type
+      let answersPayload = [];
 
-      const questionId = qRes.data?.id;
-      if (!questionId) {
-        error('No question ID returned');
-        return;
+      if (questionType === "Multiple Choice") {
+        answersPayload = answers.map(a => ({
+          text: a.text,
+          isCorrect: a.isCorrect
+        }));
+      } else if (questionType === "True/False") {
+        answersPayload = [
+          { text: "True", isCorrect: trueFalseAnswer },
+          { text: "False", isCorrect: !trueFalseAnswer }
+        ];
+      } else if (questionType === "Short Answer") {
+        answersPayload = [
+          { text: shortAnswer, isCorrect: true }
+        ];
       }
-      console.log('[AddQuestion] Question created, ID:', questionId);
 
-      // Step 2: Create answers
-      console.log('[AddQuestion] Creating answers...');
-      await Promise.all(newQuestion.answers.map(ans =>
-        api.post('/answers', {
-          questionId: questionId,
-          answerText: ans.answerText,
-          isCorrect: ans.isCorrect
-        })
-      ));
-      console.log('[AddQuestion] Answers created');
+      if (editingQuestionId) {
+        // Update existing question
+        console.log('[UpdateQuestion] Updating question:', editingQuestionId);
+        const qRes = await api.put(`/questions/${editingQuestionId}`, {
+          questionText: newQuestion.questionText,
+          type: questionTypeMap[questionType],
+          answers: answersPayload
+        });
 
-      // Step 3: Add to local state immediately
-      const newQ = {
-        id: questionId,
-        quizId: parseInt(id),
-        questionText: newQuestion.questionText,
-        questionType: newQuestion.questionType,
-        answers: newQuestion.answers
-      };
-      setQuestions(prev => [...prev, newQ]);
-      console.log('[AddQuestion] Added to state. Total:', questions.length + 1);
+        // Update in local state
+        setQuestions(prev => prev.map(q => 
+          q.id === editingQuestionId 
+            ? {
+                id: q.id,
+                quizId: q.quizId,
+                questionText: newQuestion.questionText,
+                questionType: questionType,
+                answers: qRes.data?.answers || answersPayload.map(a => ({
+                  answerText: a.text,
+                  isCorrect: a.isCorrect
+                }))
+              }
+            : q
+        ));
 
-      // Step 4: Reset form
+        setEditingQuestionId(null);
+        success('Question updated');
+      } else {
+        // Create new question
+        console.log('[AddQuestion] Creating question...');
+        const qRes = await api.post('/questions', {
+          quizId: parseInt(id),
+          questionText: newQuestion.questionText,
+          type: questionTypeMap[questionType],
+          answers: answersPayload
+        });
+
+        const questionId = qRes.data?.id;
+        if (!questionId) {
+          error('No question ID returned');
+          return;
+        }
+        console.log('[AddQuestion] Question created, ID:', questionId);
+
+        // Add to local state immediately
+        const newQ = {
+          id: questionId,
+          quizId: parseInt(id),
+          questionText: newQuestion.questionText,
+          questionType: questionType,
+          answers: qRes.data?.answers || answersPayload.map(a => ({
+            answerText: a.text,
+            isCorrect: a.isCorrect
+          }))
+        };
+        setQuestions(prev => [...prev, newQ]);
+        console.log('[AddQuestion] Added to state. Total:', questions.length + 1);
+        success('Question added');
+      }
+
+      // Reset form
       setNewQuestion({
-        questionText: '',
-        questionType: 'multipleChoice',
-        answers: [
-          { answerText: '', isCorrect: false },
-          { answerText: '', isCorrect: false }
-        ]
+        questionText: ''
       });
+      setQuestionType("Multiple Choice");
+      setAnswers([
+        { text: '', isCorrect: false },
+        { text: '', isCorrect: false }
+      ]);
+      setTrueFalseAnswer(true);
+      setShortAnswer("");
 
-      success('Question added');
       console.log('[AddQuestion] Done');
     } catch (err) {
       console.error('[AddQuestion] Error:', err);
-      error(err.response?.data?.message || 'Failed to add question');
+      error(err.response?.data?.message || 'Failed to save question');
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleEditQuestion = (question) => {
+    console.log('[EditQuestion] Starting edit for:', question.id);
+    
+    // Set editing mode
+    setEditingQuestionId(question.id);
+    
+    // Populate form with question data
+    setNewQuestion({
+      questionText: question.questionText || ''
+    });
+    
+    // Map question type code to UI string
+    const uiType = questionTypeCodeMap[question.questionType] || "Multiple Choice";
+    setQuestionType(uiType);
+    
+    // Populate answers based on type
+    if (uiType === "Multiple Choice") {
+      const mcAnswers = question.answers?.map(a => ({
+        text: a.answerText || '',
+        isCorrect: a.isCorrect || false
+      })) || [{ text: '', isCorrect: false }];
+      setAnswers(mcAnswers.length > 0 ? mcAnswers : [
+        { text: '', isCorrect: false },
+        { text: '', isCorrect: false }
+      ]);
+    } else if (uiType === "True/False") {
+      // Find which answer is correct
+      const trueAnswer = question.answers?.find(a => a.answerText === "True" && a.isCorrect);
+      setTrueFalseAnswer(trueAnswer ? true : false);
+    } else if (uiType === "Short Answer") {
+      const correctAnswer = question.answers?.find(a => a.isCorrect);
+      setShortAnswer(correctAnswer?.answerText || '');
+    }
+    
+    // Scroll to form
+    document.querySelector('.add-question-form')?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingQuestionId(null);
+    setNewQuestion({ questionText: '' });
+    setQuestionType("Multiple Choice");
+    setAnswers([
+      { text: '', isCorrect: false },
+      { text: '', isCorrect: false }
+    ]);
+    setTrueFalseAnswer(true);
+    setShortAnswer("");
   };
 
   const handleDeleteQuestion = async (questionId) => {
@@ -325,14 +546,26 @@ const AdminEditQuiz = () => {
                   <div className="question-header">
                     <span>Q{idx + 1}</span>
                     <span className="question-text">{q.questionText}</span>
-                    <button
-                      type="button"
-                      className="btn-delete"
-                      onClick={() => handleDeleteQuestion(q.id)}
-                      disabled={saving}
-                    >
-                      ✕
-                    </button>
+                    <div className="question-actions">
+                      <button
+                        type="button"
+                        className="btn-edit"
+                        onClick={() => handleEditQuestion(q)}
+                        disabled={saving}
+                        title="Edit question"
+                      >
+                        ✎
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-delete"
+                        onClick={() => handleDeleteQuestion(q.id)}
+                        disabled={saving}
+                        title="Delete question"
+                      >
+                        ✕
+                      </button>
+                    </div>
                   </div>
                   <div className="question-answers">
                     {q.answers?.map((ans, aidx) => (
@@ -349,9 +582,20 @@ const AdminEditQuiz = () => {
             </div>
           )}
 
-          {/* Add Question Form */}
+          {/* Add/Edit Question Form */}
           <div className="add-question-form">
-            <h3>Add New Question</h3>
+            <h3>{editingQuestionId ? 'Edit Question' : 'Add New Question'}</h3>
+            
+            {editingQuestionId && (
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={handleCancelEdit}
+                style={{ marginBottom: '10px' }}
+              >
+                Cancel Edit
+              </button>
+            )}
 
             <div className="form-group">
               <label>Question Text *</label>
@@ -365,53 +609,38 @@ const AdminEditQuiz = () => {
             <div className="form-group">
               <label>Type</label>
               <select
-                value={newQuestion.questionType}
-                onChange={(e) => setNewQuestion(p => ({ ...p, questionType: e.target.value }))}
+                value={questionType}
+                onChange={handleQuestionTypeChange}
               >
-                <option value="multipleChoice">Multiple Choice</option>
-                <option value="truefalse">True/False</option>
+                <option value="Multiple Choice">Multiple Choice</option>
+                <option value="True/False">True/False</option>
+                <option value="Short Answer">Short Answer</option>
               </select>
             </div>
 
-            {/* Answers */}
-            <div className="answers-section">
-              <label>Answers *</label>
-              {newQuestion.answers.map((ans, idx) => (
-                <div key={idx} className="answer-option">
-                  <input
-                    type="text"
-                    value={ans.answerText}
-                    onChange={(e) => handleAnswerChange(idx, 'answerText', e.target.value)}
-                    placeholder={`Answer ${idx + 1}`}
-                  />
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={ans.isCorrect}
-                      onChange={(e) => handleAnswerChange(idx, 'isCorrect', e.target.checked)}
-                    />
-                    Correct
-                  </label>
-                  {newQuestion.answers.length > 2 && (
-                    <button
-                      type="button"
-                      onClick={() => removeAnswerOption(idx)}
-                      className="btn-small"
-                    >
-                      Remove
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
+            {/* Conditional Answer Components */}
+            {questionType === "Multiple Choice" && (
+              <MultipleChoiceAnswers
+                answers={answers}
+                handleAnswerChange={handleAnswerChange}
+                addAnswerOption={addAnswerOption}
+                removeAnswerOption={removeAnswerOption}
+              />
+            )}
 
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={addAnswerOption}
-            >
-              + Add Answer
-            </button>
+            {questionType === "True/False" && (
+              <TrueFalseAnswers
+                trueFalseAnswer={trueFalseAnswer}
+                setTrueFalseAnswer={setTrueFalseAnswer}
+              />
+            )}
+
+            {questionType === "Short Answer" && (
+              <ShortAnswerInput
+                shortAnswer={shortAnswer}
+                setShortAnswer={setShortAnswer}
+              />
+            )}
 
             <button
               type="button"
@@ -419,7 +648,9 @@ const AdminEditQuiz = () => {
               onClick={handleAddQuestion}
               disabled={saving}
             >
-              {saving ? 'Adding...' : 'Add Question'}
+              {saving 
+                ? (editingQuestionId ? 'Updating...' : 'Adding...') 
+                : (editingQuestionId ? 'Update Question' : 'Add Question')}
             </button>
           </div>
         </div>
