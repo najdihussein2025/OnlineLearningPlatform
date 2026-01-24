@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../../services/api';
 import DataTable from '../../../components/admin/DataTable/DataTable';
 import './ActivityLog.css';
@@ -30,11 +30,7 @@ const ActivityLog = () => {
     return 'just now';
   };
 
-  useEffect(() => {
-    fetchActivityLogs();
-  }, []);
-
-  const fetchActivityLogs = async () => {
+  const fetchActivityLogs = useCallback(async () => {
     try {
       setLoading(true);
       const response = await api.get('/auditlogs?limit=500');
@@ -60,7 +56,11 @@ const ActivityLog = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchActivityLogs();
+  }, [fetchActivityLogs]);
 
   const filteredActivity = activityData.filter(item => {
     const matchesSearch = searchQuery === '' || 

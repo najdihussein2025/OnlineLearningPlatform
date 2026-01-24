@@ -4,6 +4,96 @@ import api from '../../../services/api';
 import { useDashboardToast } from '../../../components/DashboardLayout/DashboardLayout';
 import './InstructorQuizzes.css';
 
+// Multiple Choice Answers Component
+const MultipleChoiceAnswers = ({ answers, handleAnswerChange, addAnswerOption, removeAnswerOption }) => {
+  return (
+    <div className="answers-section">
+      <label>Answers *</label>
+      {answers.map((ans, idx) => (
+        <div key={idx} className="answer-option">
+          <input
+            type="text"
+            value={ans.answerText}
+            onChange={(e) => handleAnswerChange(idx, 'answerText', e.target.value)}
+            placeholder={`Answer ${idx + 1}`}
+          />
+          <label>
+            <input
+              type="checkbox"
+              checked={ans.isCorrect}
+              onChange={(e) => handleAnswerChange(idx, 'isCorrect', e.target.checked)}
+            />
+            Correct
+          </label>
+          {answers.length > 2 && (
+            <button
+              type="button"
+              onClick={() => removeAnswerOption(idx)}
+              className="btn-small"
+            >
+              Remove
+            </button>
+          )}
+        </div>
+      ))}
+      <button
+        type="button"
+        className="btn-secondary"
+        onClick={addAnswerOption}
+      >
+        + Add Answer
+      </button>
+    </div>
+  );
+};
+
+// True/False Answers Component
+const TrueFalseAnswers = ({ trueFalseAnswer, setTrueFalseAnswer }) => {
+  return (
+    <div className="answers-section">
+      <label>Correct Answer *</label>
+      <div className="true-false-options">
+        <label>
+          <input
+            type="radio"
+            name="trueFalse"
+            checked={trueFalseAnswer === true}
+            onChange={() => setTrueFalseAnswer(true)}
+          />
+          True
+        </label>
+        <label>
+          <input
+            type="radio"
+            name="trueFalse"
+            checked={trueFalseAnswer === false}
+            onChange={() => setTrueFalseAnswer(false)}
+          />
+          False
+        </label>
+      </div>
+    </div>
+  );
+};
+
+// Short Answer Input Component
+const ShortAnswerInput = ({ shortAnswer, setShortAnswer }) => {
+  return (
+    <div className="answers-section">
+      <label>Correct Answer *</label>
+      <input
+        type="text"
+        value={shortAnswer}
+        onChange={(e) => setShortAnswer(e.target.value)}
+        placeholder="Enter the correct answer"
+      />
+      <span style={{ marginTop: '8px', fontSize: '14px', color: '#666', display: 'block' }}>
+        (Auto-marked as correct)
+      </span>
+    </div>
+  );
+};
+
 const EditQuiz = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -35,6 +125,46 @@ const EditQuiz = () => {
       { answerText: '', isCorrect: false }
     ]
   });
+  
+  // True/False state
+  const [trueFalseAnswer, setTrueFalseAnswer] = useState(true);
+  
+  // Short Answer state
+  const [shortAnswer, setShortAnswer] = useState('');
+
+  // Handle question type changes
+  const handleQuestionTypeChange = (newType) => {
+    if (newType === 'True/False') {
+      setTrueFalseAnswer(true);
+      setNewQuestion({
+        questionText: newQuestion.questionText,
+        questionType: newType,
+        answers: [
+          { answerText: 'True', isCorrect: true },
+          { answerText: 'False', isCorrect: false }
+        ]
+      });
+    } else if (newType === 'Short Answer') {
+      setShortAnswer('');
+      setNewQuestion({
+        questionText: newQuestion.questionText,
+        questionType: newType,
+        answers: [
+          { answerText: '', isCorrect: true }
+        ]
+      });
+    } else {
+      // Multiple Choice
+      setNewQuestion({
+        questionText: newQuestion.questionText,
+        questionType: newType,
+        answers: [
+          { answerText: '', isCorrect: false },
+          { answerText: '', isCorrect: false }
+        ]
+      });
+    }
+  };
 
   // UI state
   const [loading, setLoading] = useState(true);
@@ -123,6 +253,10 @@ const EditQuiz = () => {
   };
 
   const addAnswerOption = () => {
+    // For Short Answer and True/False, prevent adding more answers
+    if (newQuestion.questionType === 'Short Answer' || newQuestion.questionType === 'True/False') {
+      return;
+    }
     setNewQuestion(prev => ({
       ...prev,
       answers: [...prev.answers, { answerText: '', isCorrect: false }]
@@ -130,6 +264,10 @@ const EditQuiz = () => {
   };
 
   const removeAnswerOption = (index) => {
+    // For Short Answer, prevent removal (only 1 answer)
+    if (newQuestion.questionType === 'Short Answer') {
+      return;
+    }
     if (newQuestion.answers.length > 2) {
       setNewQuestion(prev => ({
         ...prev,
@@ -376,7 +514,7 @@ const EditQuiz = () => {
                 <label>Type</label>
                 <select
                   value={newQuestion.questionType}
-                  onChange={(e) => setNewQuestion(p => ({ ...p, questionType: e.target.value }))}
+                  onChange={(e) => handleQuestionTypeChange(e.target.value)}
                 >
                   <option value="Multiple Choice">Multiple Choice</option>
                   <option value="True/False">True/False</option>
@@ -384,45 +522,46 @@ const EditQuiz = () => {
                 </select>
               </div>
 
-              {/* Answers */}
-              <div className="answers-section">
-                <label>Answers *</label>
-                {newQuestion.answers.map((ans, idx) => (
-                  <div key={idx} className="answer-option">
-                    <input
-                      type="text"
-                      value={ans.answerText}
-                      onChange={(e) => handleAnswerChange(idx, 'answerText', e.target.value)}
-                      placeholder={`Answer ${idx + 1}`}
-                    />
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={ans.isCorrect}
-                        onChange={(e) => handleAnswerChange(idx, 'isCorrect', e.target.checked)}
-                      />
-                      Correct
-                    </label>
-                    {newQuestion.answers.length > 2 && (
-                      <button
-                        type="button"
-                        onClick={() => removeAnswerOption(idx)}
-                        className="btn-small"
-                      >
-                        Remove
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={addAnswerOption}
-              >
-                + Add Answer
-              </button>
+              {/* Answers - Component-based rendering */}
+              {newQuestion.questionType === 'Multiple Choice' && (
+                <MultipleChoiceAnswers
+                  answers={newQuestion.answers}
+                  handleAnswerChange={handleAnswerChange}
+                  addAnswerOption={addAnswerOption}
+                  removeAnswerOption={removeAnswerOption}
+                />
+              )}
+              
+              {newQuestion.questionType === 'True/False' && (
+                <TrueFalseAnswers
+                  trueFalseAnswer={trueFalseAnswer}
+                  setTrueFalseAnswer={(value) => {
+                    setTrueFalseAnswer(value);
+                    setNewQuestion(prev => ({
+                      ...prev,
+                      answers: [
+                        { answerText: 'True', isCorrect: value === true },
+                        { answerText: 'False', isCorrect: value === false }
+                      ]
+                    }));
+                  }}
+                />
+              )}
+              
+              {newQuestion.questionType === 'Short Answer' && (
+                <ShortAnswerInput
+                  shortAnswer={shortAnswer}
+                  setShortAnswer={(value) => {
+                    setShortAnswer(value);
+                    setNewQuestion(prev => ({
+                      ...prev,
+                      answers: [
+                        { answerText: value, isCorrect: true }
+                      ]
+                    }));
+                  }}
+                />
+              )}
 
               <button
                 type="button"

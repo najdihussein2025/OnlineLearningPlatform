@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import StatCard from '../../../components/admin/StatCard/StatCard';
 import { useDashboardToast } from '../../../components/DashboardLayout/DashboardLayout';
 import api from '../../../services/api';
@@ -37,11 +37,7 @@ const AdminAnalytics = () => {
   const [quizScoreChartData, setQuizScoreChartData] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchAnalyticsData();
-  }, []);
-
-  const fetchAnalyticsData = async () => {
+  const fetchAnalyticsData = useCallback(async () => {
     try {
       setLoading(true);
       const [enrollmentsRes, usersRes, quizAttemptsRes, coursesRes] = await Promise.all([
@@ -210,7 +206,11 @@ const AdminAnalytics = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [error]);
+
+  useEffect(() => {
+    fetchAnalyticsData();
+  }, [fetchAnalyticsData]);
 
   return (
     <div className="admin-analytics-page">

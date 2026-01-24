@@ -19,29 +19,10 @@ const ChatbotWidget = () => {
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
-  // Fetch chatbot visibility from API
+  // Chatbot is always enabled - no need to fetch visibility settings
   useEffect(() => {
-    const loadChatbotVisibility = async () => {
-      try {
-        const response = await api.get('/settings/chatbot-visibility');
-        const isEnabled = response.data?.isEnabled === true;
-        console.log('[ChatbotWidget] Visibility loaded:', isEnabled);
-        setChatbotEnabled(isEnabled);
-      } catch (err) {
-        console.error('[ChatbotWidget] Error loading chatbot visibility:', err);
-        // Default to false on error - hide chatbot if API fails
-        setChatbotEnabled(false);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadChatbotVisibility();
-
-    // Poll for updates every 5 seconds to reflect settings changes
-    const interval = setInterval(loadChatbotVisibility, 5000);
-
-    return () => clearInterval(interval);
+    setChatbotEnabled(true);
+    setLoading(false);
   }, []);
 
   // Scroll to bottom when messages change
@@ -78,8 +59,8 @@ const ChatbotWidget = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // If chatbot is disabled or still loading, render nothing
-  if (loading || !chatbotEnabled) {
+  // Chatbot is always visible, no visibility check needed
+  if (loading) {
     return null;
   }
 

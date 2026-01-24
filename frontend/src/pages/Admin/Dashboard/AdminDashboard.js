@@ -7,7 +7,6 @@ import './AdminDashboard.css';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState('');
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalCourses: 0,
@@ -212,12 +211,7 @@ const AdminDashboard = () => {
     { key: 'time', header: 'Time', align: 'right' },
   ];
 
-  const recentActivity = searchQuery
-    ? recentActivityData.filter(item => 
-        item.action.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.user.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : recentActivityData;
+  const recentActivity = recentActivityData;
 
   return (
     <div className="admin-dashboard-page">

@@ -1,0 +1,240 @@
+
+==============================
+Date: 1/23/2026 10:38:56 AM
+Message: Gemini API error: All models failed. Last response: {
+  "error": {
+    "code": 404,
+    "message": "models/gemini-pro is not found for API version v1, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.",
+    "status": "NOT_FOUND"
+  }
+}
+
+Inner: 
+StackTrace:
+
+==============================
+
+
+==============================
+Date: 1/23/2026 10:39:39 AM
+Message: Gemini API error: All models failed. Last response: {
+  "error": {
+    "code": 404,
+    "message": "models/gemini-pro is not found for API version v1, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.",
+    "status": "NOT_FOUND"
+  }
+}
+
+Inner: 
+StackTrace:
+
+==============================
+
+
+==============================
+Date: 1/23/2026 10:40:21 AM
+Message: Gemini API error: All models failed. Last response: {
+  "error": {
+    "code": 404,
+    "message": "models/gemini-pro is not found for API version v1, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.",
+    "status": "NOT_FOUND"
+  }
+}
+
+Inner: 
+StackTrace:
+
+==============================
+
+
+==============================
+Date: 1/23/2026 8:46:42 PM
+Message: Gemini API error: All models failed. Last response: {
+  "error": {
+    "code": 404,
+    "message": "models/gemini-pro is not found for API version v1, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.",
+    "status": "NOT_FOUND"
+  }
+}
+
+Inner: 
+StackTrace:
+
+==============================
+
+
+==============================
+Date: 1/23/2026 8:52:00 PM
+Message: Gemini API error: All models failed. Last response: {
+  "error": {
+    "code": 404,
+    "message": "models/gemini-pro is not found for API version v1, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.",
+    "status": "NOT_FOUND"
+  }
+}
+
+Inner: 
+StackTrace:
+
+==============================
+
+
+==============================
+Date: 1/23/2026 8:52:27 PM
+Message: Gemini API error: All models failed. Last response: {
+  "error": {
+    "code": 404,
+    "message": "models/gemini-pro is not found for API version v1, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.",
+    "status": "NOT_FOUND"
+  }
+}
+
+Inner: 
+StackTrace:
+
+==============================
+
+
+==============================
+Date: 1/23/2026 9:30:50 PM
+Message: Gemini API error: All models failed. Last response: {
+  "error": {
+    "code": 404,
+    "message": "models/gemini-pro is not found for API version v1, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.",
+    "status": "NOT_FOUND"
+  }
+}
+
+Inner: 
+StackTrace:
+
+==============================
+
+
+==============================
+Date: 1/23/2026 9:36:36 PM
+Message: Gemini API error: All models failed. Last response: {
+  "error": {
+    "code": 404,
+    "message": "models/gemini-pro is not found for API version v1, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.",
+    "status": "NOT_FOUND"
+  }
+}
+
+Inner: 
+StackTrace:
+
+==============================
+
+
+==============================
+Date: 1/23/2026 9:36:50 PM
+Message: Gemini API error: All models failed. Last response: {
+  "error": {
+    "code": 404,
+    "message": "models/gemini-pro is not found for API version v1, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.",
+    "status": "NOT_FOUND"
+  }
+}
+
+Inner: 
+StackTrace:
+
+==============================
+
+
+==============================
+Date: 1/23/2026 9:38:27 PM
+Message: Gemini API error: All models failed. Last response: {
+  "error": {
+    "code": 404,
+    "message": "models/gemini-pro is not found for API version v1, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.",
+    "status": "NOT_FOUND"
+  }
+}
+
+Inner: 
+StackTrace:
+
+==============================
+
+
+==============================
+Date: 1/23/2026 9:54:35 PM
+Message: Gemini API error: All models failed. Last response: {
+  "error": {
+    "code": 404,
+    "message": "models/gemini-pro is not found for API version v1, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.",
+    "status": "NOT_FOUND"
+  }
+}
+
+Inner: 
+StackTrace:
+
+==============================
+
+
+==============================
+Date: 1/23/2026 10:06:32 PM
+Message: Gemini API error: All models failed. Last response: {
+  "error": {
+    "code": 404,
+    "message": "models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.",
+    "status": "NOT_FOUND"
+  }
+}
+
+Inner: 
+StackTrace:
+
+==============================
+
+
+==============================
+Date: 1/23/2026 10:09:24 PM
+Message: Gemini API error: All models failed. Last response: {
+  "error": {
+    "code": 404,
+    "message": "models/gemini-1.5-flash is not found for API version v1beta, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.",
+    "status": "NOT_FOUND"
+  }
+}
+
+Inner: 
+StackTrace:
+
+==============================
+
+
+==============================
+Date: 1/23/2026 10:15:37 PM
+Message: Gemini API error: All models failed. Last response: {
+  "error": {
+    "code": 404,
+    "message": "models/gemini-1.5-pro is not found for API version v1, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.",
+    "status": "NOT_FOUND"
+  }
+}
+
+Inner: 
+StackTrace:
+
+==============================
+
+
+==============================
+Date: 1/24/2026 1:17:35 AM
+Message: Gemini API error: All models failed. Last response: {
+  "error": {
+    "code": 404,
+    "message": "models/gemini-1.5-pro is not found for API version v1, or is not supported for generateContent. Call ListModels to see the list of available models and their supported methods.",
+    "status": "NOT_FOUND"
+  }
+}
+
+Inner: 
+StackTrace:
+
+==============================
+

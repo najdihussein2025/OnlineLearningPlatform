@@ -87,6 +87,9 @@ const ShortAnswerInput = ({ shortAnswer, setShortAnswer }) => {
         onChange={(e) => setShortAnswer(e.target.value)}
         placeholder="Enter the correct answer"
       />
+      <span style={{ marginTop: '8px', fontSize: '14px', color: '#666', display: 'block' }}>
+        (Auto-marked as correct)
+      </span>
     </div>
   );
 };

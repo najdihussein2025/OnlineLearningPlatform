@@ -144,15 +144,10 @@ USER QUESTION:
                 // Try all available models in order until one works
                 var modelsToTry = new[]
                 {
-                    ("gemini-2.5-flash", "v1beta"),
-                    ("gemini-3-flash", "v1beta"),
-                    ("gemini-2.5-flash-lite", "v1beta"),
-                    ("gemini-2.5-flash", "v1"),
-                    ("gemini-3-flash", "v1"),
-                    ("gemini-2.5-flash-lite", "v1"),
-                    ("gemini-1.5-flash", "v1beta"),
-                    ("gemini-1.5-pro", "v1beta"),
-                    ("gemini-pro", "v1"),
+                    ("gemini-2.0-flash", "v1"),
+                    ("gemini-1.5-flash", "v1"),
+                    ("gemini-2.0-flash-lite", "v1"),
+                    ("gemini-1.5-pro", "v1"),
                 };
 
                 HttpResponseMessage? response = null;
