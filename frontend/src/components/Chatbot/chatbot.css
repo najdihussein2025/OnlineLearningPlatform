@@ -120,7 +120,8 @@
 .chatbot-message {
   display: flex;
   flex-direction: column;
-  max-width: 80%;
+  max-width: 85%;
+  min-width: 60px;
   animation: fadeIn 0.3s ease-out;
 }
 
@@ -149,6 +150,10 @@
   font-size: 14px;
   line-height: 1.5;
   word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: normal;
+  white-space: pre-wrap;
+  min-height: 1.5em;
 }
 
 .chatbot-message-bot .message-content {
@@ -162,6 +167,10 @@
   background: #3b82f6;
   color: white;
   border-bottom-right-radius: 4px;
+  min-width: 48px;
+  max-width: 100%;
+  display: inline-block;
+  text-align: left;
 }
 
 /* Chat Footer */

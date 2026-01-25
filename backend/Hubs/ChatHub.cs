@@ -16,110 +16,74 @@ namespace ids.Hubs
             _context = context;
         }
 
-        public async Task JoinCourseRoom(int courseId)
+        public async Task JoinConversationRoom(int conversationId)
         {
             var userIdClaim = Context.User?.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value
                 ?? Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            
+
             if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var userId))
             {
                 throw new UnauthorizedAccessException("User not authenticated");
             }
 
-            // Check if user is allowed in this course
-            bool isInstructor = _context.Courses
-                .Any(c => c.Id == courseId && c.CreatedBy == userId);
-
-            bool isStudent = _context.Enrollments
-                .Any(e => e.CourseId == courseId && e.UserId == userId);
-
-            if (!isInstructor && !isStudent)
+            var conv = await _context.Conversations.FindAsync(conversationId);
+            if (conv == null)
             {
-                throw new UnauthorizedAccessException("Not authorized for this course chat");
+                throw new UnauthorizedAccessException("Conversation not found");
             }
 
-            await Groups.AddToGroupAsync(Context.ConnectionId, $"course-{courseId}");
-            await Clients.Group($"course-{courseId}").SendAsync("UserJoined", userId);
+            if (conv.StudentId != userId && conv.InstructorId != userId)
+            {
+                throw new UnauthorizedAccessException("Not authorized for this conversation");
+            }
+
+            await Groups.AddToGroupAsync(Context.ConnectionId, $"conversation-{conversationId}");
+            await Clients.Group($"conversation-{conversationId}").SendAsync("UserJoined", userId);
         }
 
-        public async Task SendMessage(int courseId, int senderId, int receiverId, string message)
+        public async Task SendMessage(int conversationId, string content)
         {
             var userIdClaim = Context.User?.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value
                 ?? Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            
-            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var authenticatedUserId))
+
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var senderId))
             {
                 throw new UnauthorizedAccessException("User not authenticated");
             }
 
-            // Verify that the senderId matches the authenticated user
-            if (senderId != authenticatedUserId)
+            var conv = await _context.Conversations.FindAsync(conversationId);
+            if (conv == null)
             {
-                throw new UnauthorizedAccessException("Sender ID does not match authenticated user");
+                throw new UnauthorizedAccessException("Conversation not found");
             }
 
-            // Verify user has access to this course
-            bool isInstructor = _context.Courses
-                .Any(c => c.Id == courseId && c.CreatedBy == senderId);
-
-            bool isStudent = _context.Enrollments
-                .Any(e => e.CourseId == courseId && e.UserId == senderId);
-
-            if (!isInstructor && !isStudent)
+            if (conv.StudentId != senderId && conv.InstructorId != senderId)
             {
-                throw new UnauthorizedAccessException("Not authorized for this course chat");
+                throw new UnauthorizedAccessException("Not authorized for this conversation");
             }
 
-            // Verify receiver is valid (either instructor or enrolled student)
-            bool receiverIsInstructor = _context.Courses
-                .Any(c => c.Id == courseId && c.CreatedBy == receiverId);
-            
-            bool receiverIsStudent = _context.Enrollments
-                .Any(e => e.CourseId == courseId && e.UserId == receiverId);
-
-            if (!receiverIsInstructor && !receiverIsStudent)
+            var msg = new Message
             {
-                throw new UnauthorizedAccessException("Invalid receiver for this course");
-            }
-
-            // Ensure student can only message instructor and vice versa
-            if (isStudent && !receiverIsInstructor)
-            {
-                throw new UnauthorizedAccessException("Students can only message the course instructor");
-            }
-
-            if (isInstructor && !receiverIsStudent)
-            {
-                throw new UnauthorizedAccessException("Instructors can only message enrolled students");
-            }
-
-            // Save message to database
-            var chatMessage = new ChatMessage
-            {
-                CourseId = courseId,
+                ConversationId = conversationId,
                 SenderId = senderId,
-                ReceiverId = receiverId,
-                Message = message,
+                Content = content ?? string.Empty,
                 SentAt = DateTime.UtcNow
             };
 
-            _context.ChatMessages.Add(chatMessage);
+            _context.Messages.Add(msg);
             await _context.SaveChangesAsync();
 
-            // Get sender name for display
             var sender = await _context.Users.FindAsync(senderId);
             var senderName = sender?.FullName ?? "Unknown";
 
-            // Send message to all users in the course room
-            await Clients.Group($"course-{courseId}").SendAsync("ReceiveMessage", new
+            await Clients.Group($"conversation-{conversationId}").SendAsync("ReceiveMessage", new
             {
-                id = chatMessage.Id,
-                courseId = courseId,
+                id = msg.Id,
+                conversationId = conversationId,
                 senderId = senderId,
                 senderName = senderName,
-                receiverId = receiverId,
-                message = message,
-                sentAt = chatMessage.SentAt
+                content = msg.Content,
+                sentAt = msg.SentAt
             });
         }
 
@@ -129,4 +93,3 @@ namespace ids.Hubs
         }
     }
 }
-

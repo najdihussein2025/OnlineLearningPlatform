@@ -20,8 +20,13 @@ namespace ids.Controllers
             _context = context;
         }
 
-        [HttpGet("contacts")]
-        public async Task<IActionResult> GetContacts()
+        /// <summary>
+        /// Get all conversations for the current user.
+        /// Student: returns conversations with instructors (otherParty = instructor).
+        /// Instructor: returns conversations with students (otherParty = student).
+        /// </summary>
+        [HttpGet("conversations")]
+        public async Task<IActionResult> GetConversations()
         {
             var sub = User.FindFirstValue(JwtRegisteredClaimNames.Sub) ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (!int.TryParse(sub, out var userId))
@@ -29,7 +34,6 @@ namespace ids.Controllers
                 return Unauthorized();
             }
 
-            // Get user role
             var user = await _context.Users.FindAsync(userId);
             if (user == null) return Unauthorized();
 
@@ -37,48 +41,49 @@ namespace ids.Controllers
 
             if (role == "student")
             {
-                // For students: return instructors for courses they are enrolled in
-                var contacts = await _context.Enrollments
-                    .Include(e => e.Course)
-                        .ThenInclude(c => c.Creator)
-                    .Where(e => e.UserId == userId)
-                    .Select(e => new
+                var list = await _context.Conversations
+                    .Include(c => c.Instructor)
+                    .Where(c => c.StudentId == userId)
+                    .OrderByDescending(c => c.CreatedAt)
+                    .Select(c => new
                     {
-                        courseId = e.CourseId,
-                        courseTitle = e.Course.Title,
-                        instructorId = e.Course.CreatedBy,
-                        instructorName = e.Course.Creator.FullName
+                        id = c.Id,
+                        otherPartyId = c.InstructorId,
+                        otherPartyName = c.Instructor.FullName,
+                        otherPartyEmail = c.Instructor.Email,
+                        createdAt = c.CreatedAt
                     })
-                    .Distinct()
                     .ToListAsync();
-
-                return Ok(contacts);
+                return Ok(list);
             }
-            else if (role == "instructor")
-            {
-                // For instructors: return enrolled students for their courses
-                var contacts = await _context.Courses
-                    .Include(c => c.Enrollments)
-                        .ThenInclude(e => e.User)
-                    .Where(c => c.CreatedBy == userId)
-                    .SelectMany(c => c.Enrollments.Select(e => new
-                    {
-                        courseId = c.Id,
-                        courseTitle = c.Title,
-                        studentId = e.UserId,
-                        studentName = e.User.FullName
-                    }))
-                    .Distinct()
-                    .ToListAsync();
 
-                return Ok(contacts);
+            if (role == "instructor")
+            {
+                var list = await _context.Conversations
+                    .Include(c => c.Student)
+                    .Where(c => c.InstructorId == userId)
+                    .OrderByDescending(c => c.CreatedAt)
+                    .Select(c => new
+                    {
+                        id = c.Id,
+                        otherPartyId = c.StudentId,
+                        otherPartyName = c.Student.FullName,
+                        otherPartyEmail = c.Student.Email,
+                        createdAt = c.CreatedAt
+                    })
+                    .ToListAsync();
+                return Ok(list);
             }
 
             return Ok(new List<object>());
         }
 
-        [HttpGet("messages/{courseId}")]
-        public async Task<IActionResult> GetMessages(int courseId)
+        /// <summary>
+        /// Get users that the current user can start a conversation with (instructors for students, students for instructors).
+        /// Excludes users with whom a conversation already exists.
+        /// </summary>
+        [HttpGet("conversations/available-partners")]
+        public async Task<IActionResult> GetAvailablePartners()
         {
             var sub = User.FindFirstValue(JwtRegisteredClaimNames.Sub) ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (!int.TryParse(sub, out var userId))
@@ -86,153 +91,155 @@ namespace ids.Controllers
                 return Unauthorized();
             }
 
-            // Verify user has access to this course
-            bool isInstructor = await _context.Courses
-                .AnyAsync(c => c.Id == courseId && c.CreatedBy == userId);
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null) return Unauthorized();
 
-            bool isStudent = await _context.Enrollments
-                .AnyAsync(e => e.CourseId == courseId && e.UserId == userId);
-
-            if (!isInstructor && !isStudent)
-            {
-                return Forbid("Not authorized for this course chat");
-            }
-
-            // Get all messages for this course
-            var messages = await _context.ChatMessages
-                .Include(m => m.Sender)
-                .Include(m => m.Receiver)
-                .Where(m => m.CourseId == courseId)
-                .OrderBy(m => m.SentAt)
-                .Select(m => new
-                {
-                    id = m.Id,
-                    courseId = m.CourseId,
-                    senderId = m.SenderId,
-                    senderName = m.Sender.FullName,
-                    receiverId = m.ReceiverId,
-                    receiverName = m.Receiver.FullName,
-                    message = m.Message,
-                    sentAt = m.SentAt
-                })
+            var role = user.Role?.ToLower() ?? "student";
+            var existingConversationPartnerIds = await _context.Conversations
+                .Where(c => c.StudentId == userId || c.InstructorId == userId)
+                .Select(c => c.StudentId == userId ? c.InstructorId : c.StudentId)
                 .ToListAsync();
 
-            return Ok(messages);
-        }
-
-        [HttpGet("messages/{courseId}/{otherPartyId}")]
-        public async Task<IActionResult> GetMessagesWithParty(int courseId, int otherPartyId)
-        {
-            var sub = User.FindFirstValue(JwtRegisteredClaimNames.Sub) ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (!int.TryParse(sub, out var userId))
+            if (role == "student")
             {
-                return Unauthorized();
-            }
-
-            // Verify user has access to this course
-            bool isInstructor = await _context.Courses
-                .AnyAsync(c => c.Id == courseId && c.CreatedBy == userId);
-
-            bool isStudent = await _context.Enrollments
-                .AnyAsync(e => e.CourseId == courseId && e.UserId == userId);
-
-            if (!isInstructor && !isStudent)
-            {
-                return Forbid("Not authorized for this course chat");
-            }
-
-            // Get messages between current user and the other party for this course
-            var messages = await _context.ChatMessages
-                .Include(m => m.Sender)
-                .Include(m => m.Receiver)
-                .Where(m => m.CourseId == courseId &&
-                    ((m.SenderId == userId && m.ReceiverId == otherPartyId) ||
-                     (m.SenderId == otherPartyId && m.ReceiverId == userId)))
-                .OrderBy(m => m.SentAt)
-                .Select(m => new
-                {
-                    id = m.Id,
-                    courseId = m.CourseId,
-                    senderId = m.SenderId,
-                    senderName = m.Sender.FullName,
-                    receiverId = m.ReceiverId,
-                    receiverName = m.Receiver.FullName,
-                    message = m.Message,
-                    sentAt = m.SentAt
-                })
-                .ToListAsync();
-
-            return Ok(messages);
-        }
-
-        [HttpGet("verify/{courseId}")]
-        public async Task<IActionResult> VerifyAccess(int courseId)
-        {
-            var sub = User.FindFirstValue(JwtRegisteredClaimNames.Sub) ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (!int.TryParse(sub, out var userId))
-            {
-                return Unauthorized();
-            }
-
-            // Check if user is instructor
-            bool isInstructor = await _context.Courses
-                .AnyAsync(c => c.Id == courseId && c.CreatedBy == userId);
-
-            // Check if user is enrolled student
-            bool isStudent = await _context.Enrollments
-                .AnyAsync(e => e.CourseId == courseId && e.UserId == userId);
-
-            if (!isInstructor && !isStudent)
-            {
-                return Forbid("Not authorized for this course chat");
-            }
-
-            // Get the other party (instructor if student, or enrolled students if instructor)
-            if (isStudent)
-            {
-                var course = await _context.Courses
-                    .Include(c => c.Creator)
-                    .FirstOrDefaultAsync(c => c.Id == courseId);
-                
-                if (course == null)
-                {
-                    return NotFound();
-                }
-
-                return Ok(new
-                {
-                    hasAccess = true,
-                    role = "student",
-                    otherPartyId = course.CreatedBy,
-                    otherPartyName = course.Creator.FullName,
-                    courseTitle = course.Title
-                });
-            }
-            else // isInstructor
-            {
-                // For instructor, we'll return the first enrolled student or null
-                // In the UI, instructor can select which student to chat with
-                var enrolledStudents = await _context.Enrollments
-                    .Include(e => e.User)
-                    .Where(e => e.CourseId == courseId)
-                    .Select(e => new
-                    {
-                        id = e.UserId,
-                        name = e.User.FullName
-                    })
+                var instructorIds = await _context.Enrollments
+                    .Where(e => e.UserId == userId)
+                    .Select(e => e.Course.CreatedBy)
+                    .Distinct()
                     .ToListAsync();
-
-                var course = await _context.Courses.FindAsync(courseId);
-
-                return Ok(new
-                {
-                    hasAccess = true,
-                    role = "instructor",
-                    enrolledStudents = enrolledStudents,
-                    courseTitle = course?.Title
-                });
+                var available = await _context.Users
+                    .Where(u => instructorIds.Contains(u.Id) && !existingConversationPartnerIds.Contains(u.Id))
+                    .Select(u => new { id = u.Id, fullName = u.FullName, email = u.Email })
+                    .ToListAsync();
+                return Ok(available);
             }
+
+            if (role == "instructor")
+            {
+                var studentIds = await _context.Enrollments
+                    .Where(e => e.Course.CreatedBy == userId)
+                    .Select(e => e.UserId)
+                    .Distinct()
+                    .ToListAsync();
+                var available = await _context.Users
+                    .Where(u => studentIds.Contains(u.Id) && !existingConversationPartnerIds.Contains(u.Id))
+                    .Select(u => new { id = u.Id, fullName = u.FullName, email = u.Email })
+                    .ToListAsync();
+                return Ok(available);
+            }
+
+            return Ok(new List<object>());
+        }
+
+        /// <summary>
+        /// Get or create a conversation with another user.
+        /// Student must pass instructorId; instructor must pass studentId.
+        /// Returns the conversation (creates it if it does not exist).
+        /// </summary>
+        [HttpPost("conversations/with/{otherUserId:int}")]
+        public async Task<IActionResult> GetOrCreateConversation(int otherUserId)
+        {
+            var sub = User.FindFirstValue(JwtRegisteredClaimNames.Sub) ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!int.TryParse(sub, out var userId))
+            {
+                return Unauthorized();
+            }
+
+            var me = await _context.Users.FindAsync(userId);
+            var other = await _context.Users.FindAsync(otherUserId);
+            if (me == null || other == null)
+            {
+                return NotFound("User not found");
+            }
+
+            var myRole = me.Role?.ToLower() ?? "student";
+            var otherRole = other.Role?.ToLower() ?? "student";
+
+            int studentId, instructorId;
+            if (myRole == "student" && otherRole == "instructor")
+            {
+                studentId = userId;
+                instructorId = otherUserId;
+            }
+            else if (myRole == "instructor" && otherRole == "student")
+            {
+                studentId = otherUserId;
+                instructorId = userId;
+            }
+            else
+            {
+                return BadRequest("Conversation is only between a student and an instructor.");
+            }
+
+            var conv = await _context.Conversations
+                .Include(c => c.Student)
+                .Include(c => c.Instructor)
+                .FirstOrDefaultAsync(c => c.StudentId == studentId && c.InstructorId == instructorId);
+
+            if (conv == null)
+            {
+                conv = new Conversation
+                {
+                    StudentId = studentId,
+                    InstructorId = instructorId,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _context.Conversations.Add(conv);
+                await _context.SaveChangesAsync();
+                await _context.Entry(conv).Reference(c => c.Student).LoadAsync();
+                await _context.Entry(conv).Reference(c => c.Instructor).LoadAsync();
+            }
+
+            var otherParty = conv.StudentId == userId ? conv.Instructor : conv.Student;
+            return Ok(new
+            {
+                id = conv.Id,
+                otherPartyId = otherParty.Id,
+                otherPartyName = otherParty.FullName,
+                otherPartyEmail = otherParty.Email,
+                createdAt = conv.CreatedAt
+            });
+        }
+
+        /// <summary>
+        /// Get messages for a conversation. User must be the student or instructor of that conversation.
+        /// </summary>
+        [HttpGet("messages/{conversationId:int}")]
+        public async Task<IActionResult> GetMessages(int conversationId)
+        {
+            var sub = User.FindFirstValue(JwtRegisteredClaimNames.Sub) ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!int.TryParse(sub, out var userId))
+            {
+                return Unauthorized();
+            }
+
+            var conv = await _context.Conversations.FindAsync(conversationId);
+            if (conv == null)
+            {
+                return NotFound("Conversation not found");
+            }
+
+            if (conv.StudentId != userId && conv.InstructorId != userId)
+            {
+                return Forbid("You are not part of this conversation.");
+            }
+
+            var messages = await _context.Messages
+                .Include(m => m.Sender)
+                .Where(m => m.ConversationId == conversationId)
+                .OrderBy(m => m.SentAt)
+                .Select(m => new
+                {
+                    id = m.Id,
+                    conversationId = m.ConversationId,
+                    senderId = m.SenderId,
+                    senderName = m.Sender.FullName,
+                    content = m.Content,
+                    sentAt = m.SentAt
+                })
+                .ToListAsync();
+
+            return Ok(messages);
         }
     }
 }
-

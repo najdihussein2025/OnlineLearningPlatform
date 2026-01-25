@@ -316,3 +316,86 @@
 .chat-messages::-webkit-scrollbar-thumb:hover {
   background: #555;
 }
+
+/* New conversation modal */
+.chat-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.chat-modal {
+  background: #fff;
+  border-radius: 12px;
+  padding: 1.5rem;
+  max-width: 400px;
+  width: 90%;
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.chat-modal h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.125rem;
+  color: #333;
+}
+
+.chat-partners-list {
+  overflow-y: auto;
+  flex: 1;
+  margin-bottom: 1rem;
+}
+
+.chat-partner-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: none;
+  background: #f8f9fa;
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.2s;
+}
+
+.chat-partner-item:hover:not(:disabled) {
+  background: #e9ecef;
+}
+
+.chat-partner-item:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.chat-partner-item .contact-name {
+  margin-bottom: 0.125rem;
+}
+
+.contact-email {
+  font-size: 0.8125rem;
+  color: #666;
+}
+
+.chat-modal-close {
+  padding: 0.5rem 1rem;
+  background: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.chat-modal-close:hover {
+  background: #5a6268;
+}

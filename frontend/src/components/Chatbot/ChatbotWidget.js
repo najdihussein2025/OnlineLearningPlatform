@@ -25,11 +25,12 @@ const ChatbotWidget = () => {
     setLoading(false);
   }, []);
 
-  // Scroll to bottom when messages change
+  // Scroll to bottom when messages change (delay so long bot replies are laid out first)
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
+    const t = setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }, 80);
+    return () => clearTimeout(t);
   }, [messages]);
 
   // Focus input when chat opens
@@ -99,37 +100,38 @@ const ChatbotWidget = () => {
 
     try {
       setSending(true);
-      const response = await api.post('/chatbot/ask', {
-        message: userMessage
+      const response = await api.post('/ai/ask', {
+        question: userMessage
       });
 
-      // Check if response is valid
-      if (!response.data?.response) {
+      const raw = response.data?.response;
+      if (raw == null || String(raw).trim() === '') {
         throw new Error('Invalid response');
       }
+      const responseText = typeof raw === 'string' ? raw : String(raw);
 
-      // Remove loading message and add bot response
+      // Remove loading message and add full bot response
       setMessages(prev => {
         const filtered = prev.filter(msg => !msg.isLoading);
         return [...filtered, {
           id: Date.now() + 2,
-          text: response.data.response,
+          text: responseText,
           sender: 'bot',
           timestamp: new Date()
         }];
       });
     } catch (err) {
       console.error('[ChatbotWidget] Error sending message:', err);
-      
-      // SELF HEAL: Reset to welcome message
-      setMessages([
-        {
-          id: 1,
-          text: "Hello! I'm your AI assistant for the Online Learning Platform. How can I help you today?",
+      // Keep conversation; replace loading with an error message
+      setMessages(prev => {
+        const filtered = prev.filter(msg => !msg.isLoading);
+        return [...filtered, {
+          id: Date.now() + 2,
+          text: 'Sorry, I couldn\'t load an answer. Please check your connection and try again.',
           sender: 'bot',
           timestamp: new Date()
-        }
-      ]);
+        }];
+      });
     } finally {
       setSending(false);
     }

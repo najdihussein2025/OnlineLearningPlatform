@@ -22,228 +22,179 @@ const InstructorStudents = () => {
     let mounted = true;
     const load = async () => {
       try {
-        console.log('Starting to load students data...'); // Debug log
-        
         const courseRes = await api.get('/courses/mine');
-        console.log('Courses data:', courseRes.data); // Debug log
-        
         if (!mounted) return;
         const myCourses = courseRes.data || [];
         setCourses(myCourses);
 
-        const selectedCourseId = courseId ? parseInt(courseId) : (myCourses[0]?.id || null);
-        console.log('Selected course ID:', selectedCourseId); // Debug log
-        
-        if (!selectedCourseId) {
-          console.log('No course selected, setting empty students');
+        // "All Courses" = no courseId; single course = courseId from URL
+        const selectedCourseId = courseId ? parseInt(courseId, 10) : null;
+        const courseIdsToLoad = selectedCourseId
+          ? [selectedCourseId]
+          : myCourses.map((c) => c.id);
+
+        if (courseIdsToLoad.length === 0) {
           setStudents([]);
           setStats({ total: 0, avgProgress: 0, avgQuizScore: 0 });
           setLoading(false);
           return;
         }
 
-        // Get enrollments for this course
-        console.log('Fetching enrollments for course:', selectedCourseId);
-        const enrollRes = await api.get(`/enrollments/byCourse/${selectedCourseId}`);
-        console.log('Enrollments data:', enrollRes.data); // Debug log
-        
-        const enrollments = enrollRes.data || [];
+        // Fetch enrollments for selected course(s)
+        const enrollmentPromises = courseIdsToLoad.map((cid) =>
+          api.get(`/enrollments/byCourse/${cid}`)
+        );
+        const enrollmentResults = await Promise.all(enrollmentPromises);
+        const enrollments = enrollmentResults.flatMap((res) => res.data || []);
 
         if (enrollments.length === 0) {
-          console.log('No enrollments found');
           setStudents([]);
           setStats({ total: 0, avgProgress: 0, avgQuizScore: 0 });
           setLoading(false);
           return;
         }
 
-        // Get all users to match with enrollments
-        console.log('Fetching all users');
         const usersRes = await api.get('/users');
-        console.log('Users data:', usersRes.data); // Debug log
-        
+        if (!mounted) return;
         const users = usersRes.data || [];
-        
-        // Create a map for quick user lookup
         const usersMap = {};
-        users.forEach(user => {
+        users.forEach((user) => {
           usersMap[user.id] = user;
         });
-        console.log('Users map created with', Object.keys(usersMap).length, 'users'); // Debug log
 
-        // Get lessons for this course to calculate progress
-        console.log('Fetching lessons for course:', selectedCourseId);
-        const lessonsRes = await api.get(`/lessons/byCourse/${selectedCourseId}`);
-        console.log('Lessons data:', lessonsRes.data); // Debug log
-        
-        const lessons = lessonsRes.data || [];
-        const lessonIds = lessons.map(l => l.id);
-        console.log('Lesson IDs:', lessonIds); // Debug log
-
-        // Get all completions
-        console.log('Fetching lesson completions');
-        const completionsRes = await api.get('/lessoncompletions');
-        console.log('Completions data:', completionsRes.data); // Debug log
-        
+        const [completionsRes, attemptsRes] = await Promise.all([
+          api.get('/lessoncompletions'),
+          api.get('/quizattempts'),
+        ]);
+        if (!mounted) return;
         const completions = completionsRes.data || [];
-
-        // Get all quiz attempts
-        console.log('Fetching quiz attempts');
-        const attemptsRes = await api.get('/quizattempts');
-        console.log('Quiz attempts data:', attemptsRes.data); // Debug log
-        
         const attempts = attemptsRes.data || [];
 
-        // Process each enrollment to create student data
+        // Lessons and quizzes per course (for progress and quiz score)
+        const lessonsByCourse = {};
+        const quizIdsByCourse = {};
+        await Promise.all(
+          courseIdsToLoad.map(async (cid) => {
+            const [lessonsRes, quizzesRes] = await Promise.all([
+              api.get(`/lessons/byCourse/${cid}`),
+              api.get(`/quizzes/byCourse/${cid}`),
+            ]);
+            lessonsByCourse[cid] = lessonsRes.data || [];
+            quizIdsByCourse[cid] = (quizzesRes.data || []).map((q) => q.id);
+          })
+        );
+        if (!mounted) return;
+
         const studentsData = [];
-        
-        console.log('Processing', enrollments.length, 'enrollments'); // Debug log
-        
         for (const enrollment of enrollments) {
           const userId = enrollment.userId;
-          console.log('Processing enrollment for user ID:', userId); // Debug log
-          
+          const courseIdForEnrollment = enrollment.courseId;
           const user = usersMap[userId];
-          
-          if (!user) {
-            console.log(`User not found for ID: ${userId}, checking user object structure...`);
-            console.log('Available user IDs:', Object.keys(usersMap)); // Debug log
-            continue; // Skip if user doesn't exist
-          }
+          if (!user) continue;
 
-          console.log('Found user:', user); // Debug log
+          const lessons = lessonsByCourse[courseIdForEnrollment] || [];
+          const lessonIds = lessons.map((l) => l.id);
+          const courseQuizIds = quizIdsByCourse[courseIdForEnrollment] || [];
 
-          // Calculate progress for this user in this course
           let progress = 0;
-          if (lessons.length > 0) {
+          if (lessonIds.length > 0) {
             const userCompletions = completions.filter(
-              c => c.userId === userId && lessonIds.includes(c.lessonId)
+              (c) => c.userId === userId && lessonIds.includes(c.lessonId)
             );
-            console.log(`User ${userId} has ${userCompletions.length} completions out of ${lessons.length} lessons`); // Debug log
-            
-            const completedCount = userCompletions.length;
-            progress = Math.round((completedCount / lessons.length) * 100);
+            progress = Math.round((userCompletions.length / lessonIds.length) * 100);
           }
           progress = Number(progress) || 0;
 
-          // Find quiz attempts for this user
-          const userQuizAttempts = attempts.filter(a => a.userId === userId);
-          console.log(`User ${userId} has ${userQuizAttempts.length} quiz attempts`); // Debug log
-          
-          const latestAttempt = userQuizAttempts.sort((a, b) => 
-            new Date(b.attemptDate) - new Date(a.attemptDate)
+          const userQuizAttempts = attempts.filter(
+            (a) => a.userId === userId && courseQuizIds.includes(a.quizId)
+          );
+          const latestAttempt = [...userQuizAttempts].sort(
+            (a, b) => new Date(b.attemptDate || b.AttemptDate) - new Date(a.attemptDate || a.AttemptDate)
           )[0];
-          
           let quizScore = null;
-          if (latestAttempt && latestAttempt.score !== undefined && latestAttempt.score !== null) {
+          if (latestAttempt && latestAttempt.score != null) {
             const score = Number(latestAttempt.score);
             quizScore = isNaN(score) ? null : Math.round(score);
           }
 
-          // Format enrollment date
           let enrolledDate = 'Not set';
           try {
             if (enrollment.enrolledAt) {
               const date = new Date(enrollment.enrolledAt);
               if (!isNaN(date.getTime())) {
-                enrolledDate = date.toLocaleDateString('en-US', { 
-                  month: 'short', 
+                enrolledDate = date.toLocaleDateString('en-US', {
+                  month: 'short',
                   day: 'numeric',
-                  year: 'numeric'
+                  year: 'numeric',
                 });
               }
             }
-          } catch (err) {
-            console.error('Error formatting enrollment date:', err);
-          }
+          } catch (_) {}
 
-          // Format last activity date
           let lastActivity = 'No activity';
           try {
-            if (latestAttempt && latestAttempt.attemptDate) {
+            if (latestAttempt?.attemptDate) {
               const date = new Date(latestAttempt.attemptDate);
               if (!isNaN(date.getTime())) {
-                lastActivity = date.toLocaleDateString('en-US', { 
-                  month: 'short', 
+                lastActivity = date.toLocaleDateString('en-US', {
+                  month: 'short',
                   day: 'numeric',
-                  year: 'numeric'
+                  year: 'numeric',
                 });
               }
             } else if (enrollment.enrolledAt) {
               const date = new Date(enrollment.enrolledAt);
               if (!isNaN(date.getTime())) {
-                lastActivity = date.toLocaleDateString('en-US', { 
-                  month: 'short', 
+                lastActivity = date.toLocaleDateString('en-US', {
+                  month: 'short',
                   day: 'numeric',
-                  year: 'numeric'
+                  year: 'numeric',
                 });
               }
             }
-          } catch (err) {
-            console.error('Error formatting last activity date:', err);
-          }
+          } catch (_) {}
 
-          // Get student name - check different possible fields
           const studentName = user.fullName || user.name || user.username || `Student ${userId}`;
-          const studentEmail = user.Email || 'No email';
-          
+          const studentEmail = user.Email ?? user.email ?? 'No email';
+          const courseTitle = myCourses.find((c) => c.id === courseIdForEnrollment)?.title ?? 'Unnamed Course';
+
           studentsData.push({
-            id: user.id,
+            id: `${user.id}-${courseIdForEnrollment}`,
+            userId: user.id,
             name: studentName,
             email: studentEmail,
-            course: myCourses.find(c => c.id === selectedCourseId)?.title || 'Unnamed Course',
-            courseId: selectedCourseId,
+            course: courseTitle,
+            courseId: courseIdForEnrollment,
             enrolled: enrolledDate,
             progress,
             quizScore,
             lastActivity,
           });
-          
-          console.log('Added student:', { 
-            id: user.id, 
-            name: studentName, 
-            email: studentEmail,
-            progress 
-          }); // Debug log
         }
 
-        console.log('Final students data:', studentsData); // Debug log
         setStudents(studentsData);
-        
-        // Calculate statistics
-        const total = studentsData.length;
-        
-        const validProgresses = studentsData
-          .map(s => s.progress)
-          .filter(p => !isNaN(p) && p !== null && p !== undefined);
-        
-        const avgProgress = validProgresses.length > 0 
-          ? Math.round(validProgresses.reduce((sum, p) => sum + p, 0) / validProgresses.length)
-          : 0;
-        
-        const validQuizScores = studentsData
-          .filter(s => s.quizScore !== null && !isNaN(s.quizScore))
-          .map(s => s.quizScore);
-        
-        const avgQuizScore = validQuizScores.length > 0 
-          ? Math.round(validQuizScores.reduce((sum, score) => sum + score, 0) / validQuizScores.length)
-          : 0;
 
-        setStats({
-          total,
-          avgProgress,
-          avgQuizScore
-        });
-        
-        console.log('Stats calculated:', { total, avgProgress, avgQuizScore }); // Debug log
-        
+        const total = studentsData.length;
+        const validProgresses = studentsData
+          .map((s) => s.progress)
+          .filter((p) => !isNaN(p) && p != null);
+        const avgProgress =
+          validProgresses.length > 0
+            ? Math.round(validProgresses.reduce((sum, p) => sum + p, 0) / validProgresses.length)
+            : 0;
+        const validQuizScores = studentsData
+          .filter((s) => s.quizScore != null && !isNaN(s.quizScore))
+          .map((s) => s.quizScore);
+        const avgQuizScore =
+          validQuizScores.length > 0
+            ? Math.round(validQuizScores.reduce((sum, s) => sum + s, 0) / validQuizScores.length)
+            : 0;
+
+        setStats({ total, avgProgress, avgQuizScore });
       } catch (err) {
         console.error('Failed to load students', err);
       } finally {
-        if (mounted) {
-          console.log('Setting loading to false');
-          setLoading(false);
-        }
+        if (mounted) setLoading(false);
       }
     };
 
