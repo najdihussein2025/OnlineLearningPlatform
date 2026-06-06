@@ -24,8 +24,8 @@ namespace ids.Services
         {
             var smtpHost = _configuration["Smtp:Host"] ?? "sandbox.smtp.mailtrap.io";
             var smtpPort = int.Parse(_configuration["Smtp:Port"] ?? "587");
-            var smtpUsername = _configuration["Smtp:Username"] ?? "bc26da1ee81249";
-            var smtpPassword = _configuration["Smtp:Password"] ?? "ccae67d09aa2da";
+            var smtpUsername = _configuration["Smtp:Username"] ?? string.Empty;
+            var smtpPassword = _configuration["Smtp:Password"] ?? string.Empty;
             var smtpFromEmail = _configuration["Smtp:FromEmail"] ?? "noreply@onlinelearningplatform.com";
             var smtpFromName = _configuration["Smtp:FromName"] ?? "Online Learning Platform";
 

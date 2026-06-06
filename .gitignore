@@ -3,3 +3,21 @@ bin/
 obj/
 *.user
 *.suo
+
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Frontend build output
+frontend/build/
+
+# Runtime logs and local files
+backend/Logs/
+*.log
+.env
+.env.*
+!.env.example
+
+# Local-only app settings
+backend/appsettings.Local.json
+backend/appsettings.*.local.json
